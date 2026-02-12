@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Filtro Sniper – Coleta & Análise</title>
+    <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+    <h1>🔥 FILTRO SNIPER – Coleta & Análise (FREE)</h1>
+
+    <div class="card">
+        <label for="data">Data-alvo (ex: 10/02/2026):</label>
+        <input id="data" placeholder="DD/MM/AAAA" />
+        <button id="btnBuscar">1) Buscar dados (Tavily)</button>
+    </div>
+
+    <div class="card">
+        <h3>Resultado da Busca (JSON “congelado”)</h3>
+        <textarea id="dados" rows="14" spellcheck="false"
+            placeholder="O JSON de resultados aparecerá aqui..."></textarea>
+    </div>
+
+    <div class="card">
+        <h3>2) Analisar com o FILTRO SNIPER (DeepSeek FREE)</h3>
+        <button id="btnAnalisar">Rodar Análise</button>
+    </div>
+
+    <div class="card">
+        <h3>Saída do Filtro Sniper</h3>
+        <pre id="saida">Aguardando...</pre>
+    </div>
+
+    <script src="./app.js"></script>
+</body>
+
+</html>

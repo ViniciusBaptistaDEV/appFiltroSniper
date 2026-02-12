@@ -1,0 +1,54 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font: 16px/1.4 Arial, system-ui;
+    background: #0e0f12;
+    color: #e9eef5;
+    margin: 0;
+    padding: 24px;
+}
+
+h1 {
+    margin-bottom: 12px;
+}
+
+.card {
+    background: #16181d;
+    border: 1px solid #242731;
+    border-radius: 10px;
+    padding: 16px;
+    margin: 12px 0;
+}
+
+input,
+button,
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 8px;
+    border: 1px solid #303441;
+    background: #0e0f12;
+    color: #e9eef5;
+}
+
+button {
+    background: #1f6feb;
+    cursor: pointer;
+    border: none;
+}
+
+button:hover {
+    background: #1b5ec7;
+}
+
+textarea {
+    white-space: pre;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+pre {
+    white-space: pre-wrap;
+}
