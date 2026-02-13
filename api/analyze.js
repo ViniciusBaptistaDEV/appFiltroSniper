@@ -42,4 +42,36 @@ export default async function handler(req, res) {
   } catch (error) {
     res.status(500).json({ error: "Erro na análise" });
   }
+
+  const payload = {
+    model: "deepseek/deepseek-chat",
+    temperature: 0.1,
+    messages: [
+      {
+        role: "system",
+        content: "Você é um algoritmo frio e matemático."
+      },
+      {
+        role: "user",
+        content: prompt
+      }
+    ]
+  };
+
+  console.log("========== PAYLOAD ENVIADO AO DEEPSEEK ==========");
+  console.log(JSON.stringify(payload, null, 2));
+  console.log("==================================================");
+
+  const respostaIA = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+
 }
+
+
