@@ -23,21 +23,27 @@ const fotmobHeaders = {
     "Accept": "application/json"
 };
 
-// 🔥 NOVA FUNÇÃO: O "Túnel" que contorna o bloqueio de IP da Vercel
+// 🔥 NOVA FUNÇÃO: O "Túnel" AllOrigins (Mais focado em JSON)
 async function fetchFotMobSeguro(urlOriginal) {
-    // Usamos o corsproxy (um túnel público gratuito) para esconder o IP da Vercel
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(urlOriginal)}`;
+    // Usamos o AllOrigins no modo 'raw' para forçar a entrega do JSON puro
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(urlOriginal)}`;
 
     try {
-        const res = await fetch(proxyUrl, { headers: fotmobHeaders });
-        const text = await res.text(); // Lemos como texto primeiro para não quebrar
+        const res = await fetch(proxyUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json"
+            }
+        });
+
+        const text = await res.text();
 
         try {
-            return JSON.parse(text); // Tentamos converter para JSON
+            return JSON.parse(text);
         } catch (parseError) {
             console.error("🚨 BLOQUEIO DETETADO! O site não devolveu JSON. Trecho da resposta:");
             console.error(text.substring(0, 150) + "...");
-            return null; // Retorna null para o sistema saltar este jogo sem dar Erro 500
+            return null;
         }
     } catch (fetchError) {
         console.error("🚨 Erro de conexão com o Proxy:", fetchError.message);
