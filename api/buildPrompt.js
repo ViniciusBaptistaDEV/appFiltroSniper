@@ -1,4 +1,7 @@
 export function montarPrompt(date, dadosEnriquecidos) {
+
+  const dataBR = date.split('-').reverse().join('/');
+
     return `
 PROMPT MESTRE: FILTRO SNIPER 
 
@@ -241,6 +244,8 @@ No JSON de cada time, você encontrará o campo 'desfalques'.
 
 🎯 REGRAS DE FORMATAÇÃO (PARA OS CARDS FUNCIONAREM)
 - NÃO use '###' ou '---'.
+- É PROIBIDO iniciar linhas com asteriscos (*) ou hífens (-).
+- Escreva o texto de forma limpa, linha por linha.
 - Use APENAS estes marcadores para iniciar novas seções:
   🎯 RADAR DE ESCANTEIOS
   🏆 RADAR DE VITÓRIAS
@@ -260,7 +265,7 @@ ________________________________________
 
 📝 FORMATO OBRIGATÓRIO DE RESPOSTA
 
-🎯 **ANÁLISE DO FILTRO SNIPER PARA A DATA: ${date}**
+🎯 **ANÁLISE DO FILTRO SNIPER PARA A DATA: ${dataBR}**
 
 
 [Se houver poucos jogos, insira o ALERTA DE BAIXA LIQUIDEZ aqui]
