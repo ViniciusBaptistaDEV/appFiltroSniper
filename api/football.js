@@ -46,7 +46,7 @@ export async function buscarJogos(date) {
 
     const resultadosLigas = await Promise.all(promessasLigas);
     // Reduzido para 8 jogos para garantir que as 60+ chamadas de API caibam nos 10s da Vercel
-    const jogosDoDia = resultadosLigas.flat().slice(0, 8);
+    const jogosDoDia = resultadosLigas.flat().slice(0, 15);
 
     // MUDANÇA CHAVE: Promise.all no map para disparar todos os jogos ao mesmo tempo
     const promessasAnalise = jogosDoDia.map(async (jogo) => {
