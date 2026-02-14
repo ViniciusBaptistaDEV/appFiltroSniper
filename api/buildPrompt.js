@@ -273,6 +273,7 @@ ________________________________________
     * **Cenário:** [Explique a situação na tabela real e motivação].
     * **Análise:** [Explique taticamente: Cite os jogadores de lado de campo, se buscam linha de fundo, chutes desviados, retranca do adversário].
     * **Estatística 25/26:** [Insira dados: Média de Cantos Casa vs Cedidos Visitante].
+    * **Desfalques:** [Lista de jogadores desfalquados se tiver, se no JSON estiver "✅ Força Máxima", confirme isso aqui.].
     * **Palpite:** **[Time] - Mais de X.5 Escanteios (Sozinho ou no jogo).**
 🧪 **FLAG:** [🟢 VERDE, 🟡 AMARELA ou 🔴 VERMELHA]
 
@@ -288,6 +289,7 @@ ________________________________________
 * **Check-up:**
     * *Momento (xG):* [Time vem criando chances?]
     * *Físico:* [Time está descansado?]
+* **Desfalques:** [Lista de jogadores desfalquados se tiver, se no JSON estiver "✅ Força Máxima", confirme isso aqui.].
 * **Probabilidade:** > X%.
 🧪 **FLAG:** [🟢 VERDE, 🟡 AMARELA ou 🔴 VERMELHA]
 
@@ -301,6 +303,7 @@ ________________________________________
     * **Cenário:** [Contexto real do jogo e situação na tabela].
     * **Raio-X xG:** [xG Time A | xG Time B | xGA defensivo].
     * **Perfil Tático:** [Jogo aberto, conservador, transição, controle].
+    * **Desfalques:** [Lista de jogadores desfalquados se tiver, se no JSON estiver "✅ Força Máxima", confirme isso aqui.].
     * **Palpite:** **Over/Under X.5 Gols.**
     * **Risco:** [Baixo / Moderado / Alto — justificar].
 🧪 **FLAG:** [🟢 VERDE, 🟡 AMARELA ou 🔴 VERMELHA]
@@ -315,6 +318,7 @@ ________________________________________
     * **Raio-X Ofensivo:** [xG ≥ 1.0 ambos?].
     * **Raio-X Defensivo:** [Ambos sofrem gols?].
     * **Clean Sheets:** [Frequência real].
+    * **Desfalques:** [Lista de jogadores desfalquados se tiver, se no JSON estiver "✅ Força Máxima", confirme isso aqui.].
     * **Palpite:** **Ambas Marcam — SIM/NÃO.**
     * **Risco:** [Baixo / Moderado / Alto].
 🧪 **FLAG:** [🟢 VERDE, 🟡 AMARELA ou 🔴 VERMELHA]
