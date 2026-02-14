@@ -31,13 +31,26 @@ export async function buscarJogos(date) {
         return cachePorDia.get(date);
     }
 
+    // const headers = {
+    //     "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
+    //     "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+    // };
+
+    // const res = await fetch(
+    //     `https://v3.football.api-sports.io/fixtures?date=${date}`,
+    //     { headers }
+    // );
+
     const headers = {
-        "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
-        "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+        // Agora o campo da chave muda de "X-RapidAPI-Key" para "x-apisports-key"
+        "x-apisports-key": process.env.API_FOOTBALL_KEY,
+
+        // O Host também muda para o domínio direto do provedor
+        "x-apisports-host": "v3.football.api-sports.io"
     };
 
     const res = await fetch(
-        `https://api-football-v1.p.rapidapi.com/v3/fixtures?date=${date}`,
+        `https://v3.football.api-sports.io/fixtures?date=${date}`,
         { headers }
     );
 
@@ -100,7 +113,7 @@ async function getTeamStats(teamId, leagueId, season, headers) {
     }
 
     const res = await fetch(
-        `https://api-football-v1.p.rapidapi.com/v3/teams/statistics?league=${leagueId}&season=${season}&team=${teamId}`,
+        `https://v3.football.api-sports.io/teams/statistics?league=${leagueId}&season=${season}&team=${teamId}`,
         { headers }
     );
 
@@ -136,7 +149,7 @@ async function calcularLast5Metricas(teamId, headers) {
     }
 
     const res = await fetch(
-        `https://api-football-v1.p.rapidapi.com/v3/fixtures?team=${teamId}&last=5`,
+        `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5`,
         { headers }
     );
 
@@ -150,7 +163,7 @@ async function calcularLast5Metricas(teamId, headers) {
     for (let jogo of jogos) {
 
         const statsRes = await fetch(
-            `https://api-football-v1.p.rapidapi.com/v3/fixtures/statistics?fixture=${jogo.fixture.id}`,
+            `https://v3.football.api-sports.io/fixtures/statistics?fixture=${jogo.fixture.id}`,
             { headers }
         );
 
