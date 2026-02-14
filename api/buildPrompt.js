@@ -237,14 +237,12 @@ ________________________________________
 
 📝 FORMATO OBRIGATÓRIO DE RESPOSTA
 
-🎯 **ANÁLISE FILTRO SNIPER: (${date})**
+🎯 **ANÁLISE DO FILTRO SNIPER PARA A DATA: ${date}**
 
 
 [Se houver poucos jogos, insira o ALERTA DE BAIXA LIQUIDEZ aqui]
 
 💎 **RADAR DE ESCANTEIOS**
-
-*Jogos onde o massacre ofensivo é esperado.*
 
 [Se não houver jogos que passaram na análise, insira o motivo aqui.]
 
@@ -259,8 +257,6 @@ ________________________________________
 
 
 🏆 **RADAR DE VITÓRIAS – SEGURO – ALTA PROBABILIDADE**
-
-*Onde a disparidade técnica é brutal.*
 
 [Se não houver jogos que passaram na análise, insira o motivo aqui.]
 
@@ -302,9 +298,8 @@ ________________________________________
 
 [Liste todas os jogos que passaram nas travas...]
 
-📝 **RESUMO OPERACIONAL ([DATA])**
+📝 **MÚLTIPLAS**
 
-*Sugestão de montagem de bilhetes:*
 [ Apenas jogos com 🟢 FLAG VERDE podem ser incluídos nas múltiplas abaixo.]
 
 1️⃣ **MÚLTIPLA DE ELITE (Vitórias)**
@@ -319,7 +314,7 @@ ________________________________________
 * [Lista]
 * *[Se não houver jogos que passaram na análise, insira o motivo aqui.]*
 
-[Finalizar com uma mensagem de apoio e astral para cima, pensamento positivo. Use emojis aqui. Ex: "Vamos com tudo hoje! 👊💰🎯"]
+[Finalizar com uma mensagem de apoio e astral para cima, pensamento positivo. Use emojis aqui. Coloque a mensagem em negrito.]
 
 PROIBIDO:
 • Alterar estrutura

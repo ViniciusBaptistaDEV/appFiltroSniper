@@ -61,87 +61,89 @@ window.onload = () => {
 async function gerarPDF() {
     const elementoOriginal = document.getElementById("resultado");
     const dataSelecionada = document.getElementById("dateInput").value;
-    const btnText = document.querySelector("#btnPDF");
+    const btnPDF = document.querySelector("#btnPDF");
 
-    // Feedback visual simples no botão
-    const textoOriginalBtn = btnText.innerText;
-    btnText.innerText = "⏳ Gerando...";
-    btnText.disabled = true;
+    // Feedback visual
+    const textoOriginal = btnPDF.innerText;
+    btnPDF.innerText = "⏳ Processando...";
+    btnPDF.disabled = true;
 
-    // Criar um container temporário invisível para o PDF
-    const containerPDF = document.createElement('div');
-    containerPDF.style.position = 'absolute';
-    containerPDF.style.left = '-9999px';
-    containerPDF.style.top = '0';
-    containerPDF.style.width = '800px'; // Largura fixa para evitar quebras estranhas
-    containerPDF.style.backgroundColor = '#ffffff';
-    containerPDF.style.color = '#000000';
-    containerPDF.style.padding = '20px';
-    containerPDF.style.fontFamily = 'Arial, sans-serif';
+    // Criar um container para o PDF
+    const divTemporaria = document.createElement('div');
+    
+    // Configuração de estilo forçado para evitar fundo branco/texto branco
+    divTemporaria.style.backgroundColor = "#ffffff";
+    divTemporaria.style.color = "#000000";
+    divTemporaria.style.padding = "30px";
+    divTemporaria.style.width = "800px";
+    divTemporaria.style.position = "absolute";
+    divTemporaria.style.left = "-9999px";
+    
+    // Título no PDF
+    const h1 = document.createElement('h1');
+    h1.style.textAlign = "center";
+    h1.style.color = "#000";
+    h1.innerText = `Filtro Sniper - Análise ${dataSelecionada}`;
+    divTemporaria.appendChild(h1);
+    divTemporaria.appendChild(document.createElement('hr'));
 
-    // Adicionar um título bonito no topo do PDF que não existe no site
-    const titulo = document.createElement('h1');
-    titulo.innerHTML = `🎯 Relatório Filtro Sniper<br><small style="color: #666;">Data da Rodada: ${dataSelecionada}</small><hr>`;
-    titulo.style.textAlign = 'center';
-    titulo.style.marginBottom = '20px';
-    containerPDF.appendChild(titulo);
-
-    // Clonar os cards e ajustar estilos para o PDF
-    const cloneConteudo = elementoOriginal.cloneNode(true);
-    const cards = cloneConteudo.querySelectorAll('.analysis-card');
-
+    // Clonar e limpar estilos dos cards para o PDF
+    const clone = elementoOriginal.cloneNode(true);
+    const cards = clone.querySelectorAll('.analysis-card');
+    
     cards.forEach(card => {
-        card.style.backgroundColor = '#f1f5f9';
-        card.style.color = '#000000';
-        card.style.border = '1px solid #cbd5e1';
-        card.style.borderLeft = '5px solid #22c55e';
-        card.style.marginBottom = '15px';
-        card.style.padding = '15px';
-        card.style.borderRadius = '8px';
-        card.style.pageBreakInside = 'avoid'; // Evita que um card seja cortado entre páginas
+        card.style.backgroundColor = "#f8fafc";
+        card.style.color = "#000000";
+        card.style.border = "1px solid #ddd";
+        card.style.borderLeft = "6px solid #22c55e";
+        card.style.marginBottom = "20px";
+        card.style.padding = "20px";
+        card.style.display = "block";
+        card.style.borderRadius = "8px";
+        
+        // Garante que negritos apareçam
+        const strongs = card.querySelectorAll('strong');
+        strongs.forEach(s => s.style.color = "#000");
 
-        // Ajustar badges
+        // Estiliza os Badges manualmente para o PDF
         const badges = card.querySelectorAll('.badge');
         badges.forEach(b => {
-            b.style.padding = '2px 5px';
-            b.style.borderRadius = '3px';
-            b.style.color = '#ffffff';
-            if (b.classList.contains('verde')) b.style.backgroundColor = '#16a34a';
-            if (b.classList.contains('amarela')) b.style.backgroundColor = '#ca8a04';
-            if (b.classList.contains('vermelha')) b.style.backgroundColor = '#dc2626';
+            b.style.display = "inline-block";
+            b.style.padding = "3px 8px";
+            b.style.color = "#fff";
+            b.style.borderRadius = "4px";
+            if(b.classList.contains('verde')) b.style.backgroundColor = "#16a34a";
+            if(b.classList.contains('amarela')) b.style.backgroundColor = "#ca8a04";
+            if(b.classList.contains('vermelha')) b.style.backgroundColor = "#dc2626";
         });
-
-        // Forçar cor do texto forte
-        const strongs = card.querySelectorAll('strong');
-        strongs.forEach(s => s.style.color = '#000000');
     });
 
-    containerPDF.appendChild(cloneConteudo);
-    document.body.appendChild(containerPDF);
+    divTemporaria.appendChild(clone);
+    document.body.appendChild(divTemporaria);
 
-    const options = {
+    // Configurações do PDF
+    const opt = {
         margin: 10,
-        filename: `Sniper_Analise_${dataSelecionada}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-            scale: 2,
-            useCORS: true,
+        filename: `Analise_Sniper_${dataSelecionada}.pdf`,
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { 
+            scale: 2, 
+            useCORS: true, 
             logging: false,
-            scrollY: 0,
-            scrollX: 0
+            letterRendering: true
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
     try {
-        await html2pdf().set(options).from(containerPDF).save();
-    } catch (error) {
-        console.error("Erro ao gerar PDF:", error);
+        // Pequena pausa para garantir que o DOM renderizou a divTemporaria
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await html2pdf().set(opt).from(divTemporaria).save();
+    } catch (e) {
+        console.error("Erro no PDF:", e);
     } finally {
-        // Limpar o rastro e restaurar o botão
-        document.body.removeChild(containerPDF);
-        btnText.innerText = textoOriginalBtn;
-        btnText.disabled = false;
+        document.body.removeChild(divTemporaria);
+        btnPDF.innerText = textoOriginal;
+        btnPDF.disabled = false;
     }
 }
