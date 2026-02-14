@@ -3,6 +3,7 @@ async function analisar() {
     if (!date) { alert("Selecione uma data!"); return; }
 
     const btn = document.getElementById("btnAnalisar");
+    const btnText = document.getElementById("btnText"); // Adicione esta linha!
     const loading = document.getElementById("loading");
     const resultCard = document.getElementById("resultCard");
     const resultado = document.getElementById("resultado");
@@ -36,6 +37,7 @@ async function analisar() {
         resultCard.classList.remove("hidden");
     } finally {
         btn.disabled = false;
+        btnText.textContent = "Analisar Jogos"; // Garante que o texto volte ao normal
         loading.classList.add("hidden");
     }
 }
@@ -49,3 +51,9 @@ function formatarTexto(texto) {
         .replace(/🔴 VERMELHA/g, '<span class="badge vermelha">VERMELHA</span>')
         .replace(/\n/g, '<br>');
 }
+
+// Define a data de hoje como padrão ao carregar a página
+window.onload = () => {
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('dateInput').value = hoje;
+};

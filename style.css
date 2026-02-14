@@ -192,6 +192,32 @@ pre {
     font-size: 1.1rem;
 }
 
+/* Estilo para simular o placeholder no campo de data */
+input[type="date"]::before {
+    content: attr(data-placeholder);
+    width: 100%;
+    color: #94a3b8; /* Cor cinza suave */
+}
+
+/* Quando o campo ganha foco ou já tem uma data selecionada, esconde o placeholder */
+input[type="date"]:focus::before,
+input[type="date"]:valid::before {
+    display: none;
+    content: "";
+}
+
+/* Garante que o ícone do calendário do navegador fique visível e elegante */
+input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    filter: invert(1); /* Deixa o ícone branco para combinar com o tema escuro */
+    opacity: 0.6;
+    transition: 0.3s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
 /* 📱 AJUSTES PARA CELULAR (Telas menores que 600px) */
 @media (max-width: 600px) {
     body {
