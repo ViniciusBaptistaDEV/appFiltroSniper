@@ -81,30 +81,101 @@ export async function buscarJogos(date) {
     return resultadoFinal;
 }
 
+// async function getTeamMetrics(teamId, leagueSlug) {
+//     const key = `${teamId}-${leagueSlug}`;
+//     if (cacheTeamStats.has(key)) return cacheTeamStats.get(key);
+
+//     try {
+//         // Mudança 1: Usamos blocos individuais ou Promise.all com catch para não quebrar tudo
+//         const [resSchedule, resRoster] = await Promise.all([
+//             fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`).then(r => r.json()).catch(() => ({})),
+//             fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/roster`).then(r => r.json()).catch(() => ({}))
+//         ]);
+
+//         let desfalques = ["Informação de elenco indisponível"];
+
+//         // Mudança 2: Verificação segura para não dar erro de "undefined"
+//         if (resRoster && resRoster.athletes) {
+//             const lista = resRoster.athletes
+//                 .flatMap(pos => pos.items || [])
+//                 .filter(player => player.injuries && player.injuries.length > 0)
+//                 .map(player => `${player.displayName} (${player.injuries[0].status})`);
+
+//             if (lista.length > 0) desfalques = lista;
+//         }
+
+//         const jogosEncerrados = (resSchedule.events || [])
+//             .filter(e => e.competitions && e.competitions[0].status.type.completed)
+//             .slice(-5);
+
+//         if (jogosEncerrados.length === 0) return null;
+
+//         let statsSomadas = { xG: 0, xGA: 0, cornersFor: 0, cornersAgainst: 0, pressure: 0 };
+//         let jogosValidos = 0;
+
+//         const promessasStats = jogosEncerrados.map(jogo =>
+//             fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/summary?event=${jogo.id}`)
+//                 .then(res => res.json()).catch(() => null)
+//         );
+
+//         const resumos = await Promise.all(promessasStats);
+
+//         for (let resumo of resumos) {
+//             if (!resumo || !resumo.boxscore || !resumo.boxscore.teams) continue;
+
+//             const myTeam = resumo.boxscore.teams.find(t => t.team.id === teamId)?.statistics;
+//             const oppTeam = resumo.boxscore.teams.find(t => t.team.id !== teamId)?.statistics;
+
+//             if (!myTeam || !oppTeam) continue;
+
+//             const getStat = (sArray, name) => {
+//                 const s = sArray.find(x => x.name === name);
+//                 return s ? parseFloat(s.displayValue) || 0 : 0;
+//             };
+
+//             let xg = getStat(myTeam, 'expectedGoals') || (getStat(myTeam, 'shotsOnTarget') * 0.3);
+//             let xga = getStat(oppTeam, 'expectedGoals') || (getStat(oppTeam, 'shotsOnTarget') * 0.3);
+//             let cornersF = getStat(myTeam, 'wonCorners');
+//             let cornersA = getStat(oppTeam, 'wonCorners');
+
+//             statsSomadas.xG += xg;
+//             statsSomadas.xGA += xga;
+//             statsSomadas.cornersFor += cornersF;
+//             statsSomadas.cornersAgainst += cornersA;
+//             statsSomadas.pressure += (cornersF * 0.4) + (getStat(myTeam, 'shotsOnTarget') * 0.3) + (getStat(myTeam, 'possessionPct') * 0.03);
+//             jogosValidos++;
+//         }
+
+//         if (jogosValidos === 0) return null;
+
+//         const metrics = {
+//             xG: Number((statsSomadas.xG / jogosValidos).toFixed(2)),
+//             xGA: Number((statsSomadas.xGA / jogosValidos).toFixed(2)),
+//             escanteiosFavor: Number((statsSomadas.cornersFor / jogosValidos).toFixed(2)),
+//             escanteiosContra: Number((statsSomadas.cornersAgainst / jogosValidos).toFixed(2)),
+//             pressure: Number((statsSomadas.pressure / jogosValidos).toFixed(2)),
+//             desfalques: desfalques
+//         };
+
+//         cacheTeamStats.set(key, metrics);
+//         return metrics;
+
+//     } catch (e) {
+//         console.error("Erro ao buscar métricas:", e);
+//         return null;
+//     }
+// }
+
 async function getTeamMetrics(teamId, leagueSlug) {
     const key = `${teamId}-${leagueSlug}`;
     if (cacheTeamStats.has(key)) return cacheTeamStats.get(key);
 
     try {
-        // Mudança 1: Usamos blocos individuais ou Promise.all com catch para não quebrar tudo
-        const [resSchedule, resRoster] = await Promise.all([
-            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`).then(r => r.json()).catch(() => ({})),
-            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/roster`).then(r => r.json()).catch(() => ({}))
-        ]);
+        // Buscamos apenas o Schedule primeiro
+        const resSchedule = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`);
+        const dataSchedule = await resSchedule.json();
 
-        let desfalques = ["Informação de elenco indisponível"];
-
-        // Mudança 2: Verificação segura para não dar erro de "undefined"
-        if (resRoster && resRoster.athletes) {
-            const lista = resRoster.athletes
-                .flatMap(pos => pos.items || [])
-                .filter(player => player.injuries && player.injuries.length > 0)
-                .map(player => `${player.displayName} (${player.injuries[0].status})`);
-
-            if (lista.length > 0) desfalques = lista;
-        }
-
-        const jogosEncerrados = (resSchedule.events || [])
+        const jogosEncerrados = (dataSchedule.events || [])
             .filter(e => e.competitions && e.competitions[0].status.type.completed)
             .slice(-5);
 
@@ -112,7 +183,9 @@ async function getTeamMetrics(teamId, leagueSlug) {
 
         let statsSomadas = { xG: 0, xGA: 0, cornersFor: 0, cornersAgainst: 0, pressure: 0 };
         let jogosValidos = 0;
+        let listaDesfalques = [];
 
+        // Buscamos os resumos dos últimos jogos
         const promessasStats = jogosEncerrados.map(jogo =>
             fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/summary?event=${jogo.id}`)
                 .then(res => res.json()).catch(() => null)
@@ -122,6 +195,16 @@ async function getTeamMetrics(teamId, leagueSlug) {
 
         for (let resumo of resumos) {
             if (!resumo || !resumo.boxscore || !resumo.boxscore.teams) continue;
+
+            // TENTATIVA DE PEGAR INJURIES NO SUMMARY (Mais estável que o Roster)
+            if (resumo.injuries && resumo.injuries.length > 0) {
+                resumo.injuries.forEach(inj => {
+                    if (inj.team?.id === teamId) {
+                        const nomes = inj.injuries.map(i => `${i.athlete.displayName} (${i.status})`);
+                        listaDesfalques.push(...nomes);
+                    }
+                });
+            }
 
             const myTeam = resumo.boxscore.teams.find(t => t.team.id === teamId)?.statistics;
             const oppTeam = resumo.boxscore.teams.find(t => t.team.id !== teamId)?.statistics;
@@ -146,7 +229,8 @@ async function getTeamMetrics(teamId, leagueSlug) {
             jogosValidos++;
         }
 
-        if (jogosValidos === 0) return null;
+        // Limpar duplicatas de desfalques
+        const desfalquesUnicos = [...new Set(listaDesfalques)];
 
         const metrics = {
             xG: Number((statsSomadas.xG / jogosValidos).toFixed(2)),
@@ -154,14 +238,10 @@ async function getTeamMetrics(teamId, leagueSlug) {
             escanteiosFavor: Number((statsSomadas.cornersFor / jogosValidos).toFixed(2)),
             escanteiosContra: Number((statsSomadas.cornersAgainst / jogosValidos).toFixed(2)),
             pressure: Number((statsSomadas.pressure / jogosValidos).toFixed(2)),
-            desfalques: desfalques
+            desfalques: desfalquesUnicos.length > 0 ? desfalquesUnicos : ["✅ Força Máxima ou Sem Informação de Lesão"]
         };
 
         cacheTeamStats.set(key, metrics);
         return metrics;
-
-    } catch (e) {
-        console.error("Erro ao buscar métricas:", e);
-        return null;
-    }
+    } catch (e) { return null; }
 }
