@@ -24,28 +24,18 @@ const cachePorDia = new Map();
 const cacheTeamStats = new Map();
 const cacheLast5 = new Map();
 
+// 🔥 Função para criar uma pausa e não estourar o limite por segundo da API
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function buscarJogos(date) {
 
     if (cachePorDia.has(date)) {
-        console.log("⚡ Retornando do cache do dia");
+        console.log("⚡ A retornar do cache do dia");
         return cachePorDia.get(date);
     }
 
-    // const headers = {
-    //     "X-RapidAPI-Key": process.env.RAPIDAPI_KEY,
-    //     "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
-    // };
-
-    // const res = await fetch(
-    //     `https://v3.football.api-sports.io/fixtures?date=${date}`,
-    //     { headers }
-    // );
-
     const headers = {
-        // Agora o campo da chave muda de "X-RapidAPI-Key" para "x-apisports-key"
         "x-apisports-key": process.env.API_FOOTBALL_KEY,
-
-        // O Host também muda para o domínio direto do provedor
         "x-apisports-host": "v3.football.api-sports.io"
     };
 
@@ -55,6 +45,11 @@ export async function buscarJogos(date) {
     );
 
     const data = await res.json();
+
+    if (!data.response) {
+        console.error("Erro ao buscar jogos do dia. Verifique a chave da API.");
+        return [];
+    }
 
     const jogosFiltrados = data.response
         .filter(j => ALLOWED_LEAGUES.includes(j.league.id))
@@ -69,16 +64,22 @@ export async function buscarJogos(date) {
         const leagueId = jogo.league.id;
         const season = jogo.league.season;
 
-        // 🔵 Estatísticas temporada
+        // 🔵 Busca os dados brutos primeiro
         const homeSeasonRaw = await getTeamStats(homeId, leagueId, season, headers);
         const awaySeasonRaw = await getTeamStats(awayId, leagueId, season, headers);
-
-        const homeSeason = extrairSeasonMetricas(homeSeasonRaw);
-        const awaySeason = extrairSeasonMetricas(awaySeasonRaw);
-
-        // 🟢 Últimos 5 jogos com métricas
         const homeLast5 = await calcularLast5Metricas(homeId, headers);
         const awayLast5 = await calcularLast5Metricas(awayId, headers);
+
+        // 🛡️ A TRAVA DE SEGURANÇA (As duas linhas essenciais)
+        // Se a API barrar ou faltar dados de alguma equipa, ignora este jogo e passa ao próximo
+        if (!homeSeasonRaw || !awaySeasonRaw || !homeLast5 || !awayLast5) {
+            console.warn(`⚠️ A saltar o jogo ${jogo.teams.home.name} vs ${jogo.teams.away.name} devido a falha ou falta de dados.`);
+            continue;
+        }
+
+        // Apenas processa as métricas se todos os dados existirem (evita erros fatais)
+        const homeSeason = extrairSeasonMetricas(homeSeasonRaw);
+        const awaySeason = extrairSeasonMetricas(awaySeasonRaw);
 
         const homeFinal = aplicarPeso(homeLast5, homeSeason);
         const awayFinal = aplicarPeso(awayLast5, awaySeason);
@@ -112,14 +113,21 @@ async function getTeamStats(teamId, leagueId, season, headers) {
         return cacheTeamStats.get(key);
     }
 
+    await delay(300); // ⏱️ Travão de segurança da API
+
     const res = await fetch(
         `https://v3.football.api-sports.io/teams/statistics?league=${leagueId}&season=${season}&team=${teamId}`,
         { headers }
     );
 
     const data = await res.json();
-    const stats = data.response;
 
+    // Proteção caso a API devolva vazio
+    if (!data || !data.response || Object.keys(data.response).length === 0) {
+        return null;
+    }
+
+    const stats = data.response;
     cacheTeamStats.set(key, stats);
 
     return stats;
@@ -148,19 +156,29 @@ async function calcularLast5Metricas(teamId, headers) {
         return cacheLast5.get(teamId);
     }
 
+    await delay(300); // ⏱️ Travão de segurança da API
+
     const res = await fetch(
         `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5`,
         { headers }
     );
 
     const data = await res.json();
+
+    if (!data || !data.response || data.response.length === 0) {
+        return null;
+    }
+
     const jogos = data.response;
 
     let totalXG = 0;
     let totalXGA = 0;
     let totalPressure = 0;
+    let jogosValidos = 0; // Para garantir a média correta caso algum jogo falhe
 
     for (let jogo of jogos) {
+
+        await delay(300); // ⏱️ Travão dentro do loop (CRUCIAL)
 
         const statsRes = await fetch(
             `https://v3.football.api-sports.io/fixtures/statistics?fixture=${jogo.fixture.id}`,
@@ -168,6 +186,11 @@ async function calcularLast5Metricas(teamId, headers) {
         );
 
         const statsData = await statsRes.json();
+
+        if (!statsData || !statsData.response || statsData.response.length === 0) {
+            continue; // Se este jogo específico não tiver dados, passa à frente
+        }
+
         const stats = statsData.response;
 
         const teamStats = stats.find(s => s.team.id === teamId);
@@ -182,14 +205,15 @@ async function calcularLast5Metricas(teamId, headers) {
         totalXG += xg;
         totalXGA += xga;
         totalPressure += pressure;
+        jogosValidos++;
     }
 
-    const divisor = jogos.length || 1;
+    if (jogosValidos === 0) return null;
 
     const result = {
-        xG: totalXG / divisor,
-        xGA: totalXGA / divisor,
-        pressure: totalPressure / divisor
+        xG: totalXG / jogosValidos,
+        xGA: totalXGA / jogosValidos,
+        pressure: totalPressure / jogosValidos
     };
 
     cacheLast5.set(teamId, result);
