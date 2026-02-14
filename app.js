@@ -24,7 +24,7 @@ async function analisar() {
         const textoIA = data.resultado || data.error;
 
         // Dividimos o texto por seções (usando os títulos da IA como divisores)
-        const secoes = textoIA.split(/(?=💎|🥇|🏆|⚽|📝)/g);
+        const secoes = textoIA.split(/(?=💎|🏆|⚽|📝)/g);
 
         resultado.innerHTML = secoes.map(secao => {
             if (secao.trim() === "") return "";
@@ -58,43 +58,90 @@ window.onload = () => {
     document.getElementById('dateInput').value = hoje;
 };
 
-function gerarPDF() {
-    const elemento = document.getElementById("resultado");
+async function gerarPDF() {
+    const elementoOriginal = document.getElementById("resultado");
     const dataSelecionada = document.getElementById("dateInput").value;
+    const btnText = document.querySelector("#btnPDF");
 
-    // Criamos um clone para formatar apenas o PDF sem estragar o visual do site
-    const clone = elemento.cloneNode(true);
+    // Feedback visual simples no botão
+    const textoOriginalBtn = btnText.innerText;
+    btnText.innerText = "⏳ Gerando...";
+    btnText.disabled = true;
 
-    // Ajuste de estilo para o PDF ser legível (Fundo branco, texto preto)
-    clone.style.backgroundColor = "#ffffff";
-    clone.style.color = "#000000";
-    clone.style.padding = "20px";
+    // Criar um container temporário invisível para o PDF
+    const containerPDF = document.createElement('div');
+    containerPDF.style.position = 'absolute';
+    containerPDF.style.left = '-9999px';
+    containerPDF.style.top = '0';
+    containerPDF.style.width = '800px'; // Largura fixa para evitar quebras estranhas
+    containerPDF.style.backgroundColor = '#ffffff';
+    containerPDF.style.color = '#000000';
+    containerPDF.style.padding = '20px';
+    containerPDF.style.fontFamily = 'Arial, sans-serif';
 
-    // Ajusta todos os cards dentro do clone para terem fundo claro e bordas cinzas
-    const cards = clone.querySelectorAll('.analysis-card');
+    // Adicionar um título bonito no topo do PDF que não existe no site
+    const titulo = document.createElement('h1');
+    titulo.innerHTML = `🎯 Relatório Filtro Sniper<br><small style="color: #666;">Data da Rodada: ${dataSelecionada}</small><hr>`;
+    titulo.style.textAlign = 'center';
+    titulo.style.marginBottom = '20px';
+    containerPDF.appendChild(titulo);
+
+    // Clonar os cards e ajustar estilos para o PDF
+    const cloneConteudo = elementoOriginal.cloneNode(true);
+    const cards = cloneConteudo.querySelectorAll('.analysis-card');
+
     cards.forEach(card => {
-        card.style.backgroundColor = "#f8fafc";
-        card.style.color = "#1e293b";
-        card.style.borderColor = "#cbd5e1";
-        card.style.marginBottom = "15px";
+        card.style.backgroundColor = '#f1f5f9';
+        card.style.color = '#000000';
+        card.style.border = '1px solid #cbd5e1';
+        card.style.borderLeft = '5px solid #22c55e';
+        card.style.marginBottom = '15px';
+        card.style.padding = '15px';
+        card.style.borderRadius = '8px';
+        card.style.pageBreakInside = 'avoid'; // Evita que um card seja cortado entre páginas
+
+        // Ajustar badges
+        const badges = card.querySelectorAll('.badge');
+        badges.forEach(b => {
+            b.style.padding = '2px 5px';
+            b.style.borderRadius = '3px';
+            b.style.color = '#ffffff';
+            if (b.classList.contains('verde')) b.style.backgroundColor = '#16a34a';
+            if (b.classList.contains('amarela')) b.style.backgroundColor = '#ca8a04';
+            if (b.classList.contains('vermelha')) b.style.backgroundColor = '#dc2626';
+        });
+
+        // Forçar cor do texto forte
+        const strongs = card.querySelectorAll('strong');
+        strongs.forEach(s => s.style.color = '#000000');
     });
 
-    // Ajusta as cores das fontes fortes (strong) para preto
-    const strongs = clone.querySelectorAll('strong');
-    strongs.forEach(s => s.style.color = "#000000");
+    containerPDF.appendChild(cloneConteudo);
+    document.body.appendChild(containerPDF);
 
     const options = {
-        margin: [10, 10, 10, 10],
-        filename: `Filtro_Sniper_Analise_${dataSelecionada}.pdf`,
+        margin: 10,
+        filename: `Sniper_Analise_${dataSelecionada}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
             scale: 2,
-            backgroundColor: "#ffffff", // Fundo branco oficial
-            useCORS: true
+            useCORS: true,
+            logging: false,
+            scrollY: 0,
+            scrollX: 0
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    // Gera o PDF a partir do clone formatado
-    html2pdf().set(options).from(clone).save();
+    try {
+        await html2pdf().set(options).from(containerPDF).save();
+    } catch (error) {
+        console.error("Erro ao gerar PDF:", error);
+    } finally {
+        // Limpar o rastro e restaurar o botão
+        document.body.removeChild(containerPDF);
+        btnText.innerText = textoOriginalBtn;
+        btnText.disabled = false;
+    }
 }

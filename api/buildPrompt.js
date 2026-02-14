@@ -112,18 +112,21 @@ o	Time forte em casa e fraco fora → NUNCA aposte fora, independentemente da od
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-💎 ESCANTEIOS (CATEGORIA DIAMANTE E OURO)
+💎 RADAR DE ESCANTEIOS (CATEGORIA ÚNICA)
 
-Para validar estas categorias, utilize os campos reais do JSON: 'escanteiosFavor' e 'escanteiosContra'.
+Analise todos os jogos utilizando obrigatoriamente os campos 'escanteiosFavor' e 'escanteiosContra' do JSON.
 
-• CATEGORIA DIAMANTE (Individual): 
-  - Validar se escanteiosFavor do time ≥ 6.0
-  - Validar se pressure ≥ 50.0
-  - Oponente deve ter xGA ≥ 1.20
+• 🟢 FLAG VERDE (Elite - Operação Segura): 
+  - Individual: escanteiosFavor ≥ 6.0 E pressure ≥ 50.0 E xGA do oponente ≥ 1.20.
+  - No Jogo: Soma de escanteiosFavor (Casa + Fora) ≥ 10.0 E pressure somada ≥ 80.0.
 
-• CATEGORIA OURO (Total do Jogo):
-  - Validar se (escanteiosFavor Casa + escanteiosFavor Fora) ≥ 9.5
-  - Validar se pressure de ambos os times somada ≥ 80.0
+• 🟡 FLAG AMARELA (Atenção - Médio Risco):
+  - Individual: escanteiosFavor entre 4.5 e 5.9.
+  - No Jogo: Soma de escanteiosFavor (Casa + Fora) entre 8.5 e 9.9.
+
+• 🔴 FLAG VERMELHA (Abortar):
+  - Se 'escanteiosFavor' < 4.5 ou soma do jogo < 8.5.
+  - Dados insuficientes no JSON.
 
 👉 Se os dados de 'escanteiosFavor' estiverem presentes, você TEM o que precisa para analisar. Não aborte por falta de nomes de jogadores se os números de volume estiverem no JSON.
 
@@ -239,7 +242,7 @@ ________________________________________
 
 [Se houver poucos jogos, insira o ALERTA DE BAIXA LIQUIDEZ aqui]
 
-💎 **CATEGORIA DIAMANTE (ESCANTEIOS - PRESSÃO REAL)**
+💎 **RADAR DE ESCANTEIOS**
 
 *Jogos onde o massacre ofensivo é esperado.*
 
@@ -249,28 +252,11 @@ ________________________________________
     * **Cenário:** [Explique a situação na tabela real e motivação].
     * **Análise:** [Explique taticamente: Cite os jogadores de lado de campo, se buscam linha de fundo, chutes desviados, retranca do adversário].
     * **Estatística 25/26:** [Insira dados: Média de Cantos Casa vs Cedidos Visitante].
-    * **Palpite:** **[Time] - Mais de X.5 Escanteios (Sozinho).**
+    * **Palpite:** **[Time] - Mais de X.5 Escanteios (Sozinho ou no jogo).**
 🧪 **FLAG:** [🟢 VERDE, 🟡 AMARELA ou 🔴 VERMELHA]
 
-[Liste todos os jogos Diamante...]
+[Liste todos os jogos para apostar em escanteios...]
 
-
-
-🥇 **CATEGORIA OURO (ESCANTEIOS - JOGOS ABERTOS)**
-
-*Jogos de intensidade.*
-
-[Se não houver jogos que passaram na análise, insira o motivo aqui.]
-
-* **[Time A] vs [Time B]** ([Liga] - [Horário])
-    * **Análise:** [Explique a trocação].
-    * **Análise Tática:** [Explique taticamente: laterais ofensivos, bolas paradas].
-    * **Estatística 25/26:** [Insira dados: Média de Cantos Casa vs Cedidos Visitante].
-    * **Cenário:** [Explique a situação na tabela real e motivação].
-    * **Palpite:** **Mais de X.5 Escanteios no Jogo.**
-🧪 **FLAG:** [🟢 VERDE, 🟡 AMARELA ou 🔴 VERMELHA]
-
-[Liste todos os jogos Ouro...]
 
 🏆 **RADAR DE VITÓRIAS – SEGURO – ALTA PROBABILIDADE**
 
