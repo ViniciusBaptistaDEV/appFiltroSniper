@@ -73,9 +73,8 @@ function copiarTexto() {
         btn.style.background = "#16a34a"; // Muda para verde
         
         setTimeout(() => {
-            btn.innerText = textoOriginal;
-            btn.style.background = "#475569"; // Volta ao normal
-        }, 2000);
+            btn.innerText = textoOriginal; // Volta ao normal
+        }, 3000);
     }).catch(err => {
         alert("Erro ao copiar: ", err);
     });
