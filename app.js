@@ -58,98 +58,25 @@ window.onload = () => {
     document.getElementById('dateInput').value = hoje;
 };
 
-async function gerarPDF() {
-    const elementoOriginal = document.getElementById("resultado");
-    const dataSelecionada = document.getElementById("dateInput").value;
-    const btnPDF = document.querySelector("#btnPDF");
+function copiarTexto() {
+    const elemento = document.getElementById("resultado");
+    const btn = document.getElementById("btnCopiar");
+    
+    // Pegamos o texto, mas convertemos as tags <br> e </div> em quebras de linha reais
+    let textoFormatado = elemento.innerText;
 
-    if (!elementoOriginal || elementoOriginal.children.length === 0) {
-        alert("Aguarde a análise carregar antes de baixar o PDF.");
-        return;
-    }
-
-    const textoOriginal = btnPDF.innerText;
-    btnPDF.innerText = "⏳ Gerando...";
-    btnPDF.disabled = true;
-
-    // 1. Criar o container em uma posição que não bugará a captura
-    const divTemporaria = document.createElement('div');
-    // Forçamos a div a ficar bem longe da tela para não aparecer para o usuário
-    divTemporaria.style.position = "absolute";
-    divTemporaria.style.left = "-9999px"; 
-    divTemporaria.style.top = "0";
-    divTemporaria.style.width = "800px"; // Largura fixa ideal para A4
-    divTemporaria.style.backgroundColor = "#ffffff";
-    divTemporaria.style.color = "#000000";
-    divTemporaria.style.padding = "20px";
-
-    // 2. Formatar a data para o cabeçalho
-    const dataBR = dataSelecionada.split('-').reverse().join('/');
-
-    // 3. Montar o conteúdo do PDF manualmente para garantir limpeza total
-    let conteudoHtml = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; background-color: white;">
-            <div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px;">
-                <h1 style="margin: 0; font-size: 24px;">🎯 RELATÓRIO FILTRO SNIPER</h1>
-                <p style="margin: 5px 0; color: #666;">Data da Rodada: ${dataBR}</p>
-            </div>
-    `;
-
-    // 4. Percorrer os cards originais e recriar no PDF (limpando o lixo do CSS dark)
-    const cards = elementoOriginal.querySelectorAll('.analysis-card');
-    cards.forEach(card => {
-        // Limpamos o texto (removemos asteriscos se ainda existirem e ajustamos quebras)
-        let textoLimpo = card.innerHTML
-            .replace(/\*/g, '') // Remove asteriscos residuais
-            .replace(/<br>/g, '\n'); 
-
-        conteudoHtml += `
-            <div style="
-                border: 1px solid #ccc; 
-                border-left: 10px solid #22c55e; 
-                padding: 15px; 
-                margin-bottom: 20px; 
-                border-radius: 8px;
-                background-color: #f9f9f9;
-                page-break-inside: avoid;
-            ">
-                <div style="white-space: pre-wrap; color: #000; font-size: 13px; line-height: 1.5;">
-                    ${textoLimpo}
-                </div>
-            </div>
-        `;
+    // Tenta copiar usando a API moderna de área de transferência
+    navigator.clipboard.writeText(textoFormatado).then(() => {
+        // Feedback visual simples
+        const textoOriginal = btn.innerText;
+        btn.innerText = "✅ Copiado!";
+        btn.style.background = "#16a34a"; // Muda para verde
+        
+        setTimeout(() => {
+            btn.innerText = textoOriginal;
+            btn.style.background = "#475569"; // Volta ao normal
+        }, 2000);
+    }).catch(err => {
+        alert("Erro ao copiar: ", err);
     });
-
-    conteudoHtml += `</div>`;
-    divTemporaria.innerHTML = conteudoHtml;
-    document.body.appendChild(divTemporaria);
-
-    // 5. Configurações do html2pdf
-    const opt = {
-        margin: [10, 10],
-        filename: `Filtro_Sniper_${dataSelecionada}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-            scale: 2, 
-            useCORS: true,
-            logging: false,
-            letterRendering: true,
-            scrollY: 0,
-            windowWidth: 800
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    try {
-        // Aguarda a renderização completa dos textos
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        await html2pdf().set(opt).from(divTemporaria).save();
-    } catch (e) {
-        console.error("Erro ao gerar PDF:", e);
-        alert("Ocorreu um erro ao gerar o PDF.");
-    } finally {
-        document.body.removeChild(divTemporaria);
-        btnPDF.innerText = textoOriginal;
-        btnPDF.disabled = false;
-    }
 }
