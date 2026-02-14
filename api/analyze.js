@@ -39,12 +39,30 @@ export default async function handler(req, res) {
 
     const data = await respostaIA.json();
 
+    // 🛡️ TRAVA DO OPENROUTER: Verifica se a IA devolveu um erro
+    if (data.error) {
+      console.error("🚨 Erro retornado pelo OpenRouter:", data.error);
+      return res.status(500).json({
+        error: "O OpenRouter recusou a requisição",
+        detalhe: data.error.message
+      });
+    }
+
+    // 🛡️ TRAVA 2: Verifica se a resposta veio em um formato estranho
+    if (!data.choices || data.choices.length === 0) {
+      console.error("🚨 Resposta vazia da IA:", data);
+      return res.status(500).json({
+        error: "A IA não enviou nenhum texto de volta",
+        detalhe: "Sem choices no retorno"
+      });
+    }
+
+    // Se passou pelas travas, envia o resultado com sucesso!
     res.status(200).json({
       resultado: data.choices[0].message.content
     });
 
   } catch (error) {
-    // ISSO AQUI VAI TE SALVAR HORAS DE DEBUG:
     console.error("🚨 ERRO CRÍTICO NO BACKEND:", error);
     res.status(500).json({ error: "Erro interno na análise", detalhe: error.message });
   }
