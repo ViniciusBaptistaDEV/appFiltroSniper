@@ -1,4 +1,3 @@
-
 import { buscarJogos } from "./football.js";
 import { montarPrompt } from "./buildPrompt.js";
 
@@ -12,10 +11,12 @@ export default async function handler(req, res) {
     const payload = {
       model: "deepseek/deepseek-chat",
       temperature: 0.1,
+      // 🔥 AUMENTO DE LIMITE: Permite que a IA escreva um relatório longo para os 15 jogos
+      max_tokens: 4000,
       messages: [
         {
           role: "system",
-          content: "Você é um algoritmo frio e matemático."
+          content: "Você é um algoritmo frio e matemático. Sua análise deve ser exaustiva: analise todos os jogos fornecidos sem resumir ou omitir dados qualificados."
         },
         {
           role: "user",
@@ -24,9 +25,7 @@ export default async function handler(req, res) {
       ]
     };
 
-    console.log("========== PAYLOAD ENVIADO AO DEEPSEEK ==========");
-    // console.log(JSON.stringify(payload, null, 2)); // Descomente se quiser ver o log gigante
-    console.log("==================================================");
+    console.log("========== ENVIANDO REQUISIÇÃO AO OPENROUTER ==========");
 
     const respostaIA = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
