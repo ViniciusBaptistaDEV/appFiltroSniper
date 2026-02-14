@@ -1,5 +1,24 @@
 const ALLOWED_LEAGUES = [
-    'eng.1', 'esp.1', 'ita.1', 'ger.1', 'fra.1', 'bra.1', 'por.1', 'uefa.champions'
+    // --- Ligas Principais ---
+    'eng.1',            // Premier League (Inglaterra)
+    'esp.1',            // LaLiga (Espanha)
+    'ita.1',            // Serie A (Itália)
+    'ger.1',            // Bundesliga (Alemanha)
+    'fra.1',            // Ligue 1 (França)
+    'bra.1',            // Brasileirão Série A (Brasil)
+    'por.1',            // Liga Portugal (Portugal)
+    'tur.1',            // Süper Lig (Turquia)
+    'sco.1',            // Scottish Premiership (Escócia)
+    
+    // --- Competições Continentais e Mundiais ---
+    'uefa.champions',   // UEFA Champions League
+    'fifa.world',       // Copa do Mundo da FIFA
+    
+    // --- Copas Nacionais (Knockout Cups) ---
+    'eng.fa',           // FA Cup (Copa da Inglaterra)
+    'esp.copa_del_rey', // Copa del Rey (Copa do Rei - Espanha)
+    'fra.coupe_de_france', // Coupe de France (Copa da França)
+    'ita.coppa_italia' // Coppa Italia (Copa da Itália)
 ];
 
 const cachePorDia = new Map();
@@ -9,7 +28,7 @@ export async function buscarJogos(date) {
     if (cachePorDia.has(date)) return cachePorDia.get(date);
 
     const dataESPN = date.replace(/-/g, "");
-    console.log(`🔎 Puxando jogos e ESCANTEIOS da ESPN para: ${dataESPN}...`);
+    console.log(`🔎 Sniper buscando Top 8 jogos e DESFALQUES para: ${dataESPN}...`);
 
     const promessasLigas = ALLOWED_LEAGUES.map(league =>
         fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${league}/scoreboard?dates=${dataESPN}`)
@@ -26,32 +45,38 @@ export async function buscarJogos(date) {
     );
 
     const resultadosLigas = await Promise.all(promessasLigas);
-    const jogosDoDia = resultadosLigas.flat().slice(0, 15); // Pente-fino de 15 jogos
+    // Reduzido para 8 jogos para garantir que as 60+ chamadas de API caibam nos 10s da Vercel
+    const jogosDoDia = resultadosLigas.flat().slice(0, 15); 
 
-    const resultadoFinal = [];
-
-    for (let jogo of jogosDoDia) {
+    // MUDANÇA CHAVE: Promise.all no map para disparar todos os jogos ao mesmo tempo
+    const promessasAnalise = jogosDoDia.map(async (jogo) => {
         const comp = jogo.competitions[0];
         const home = comp.competitors.find(c => c.homeAway === 'home').team;
         const away = comp.competitors.find(c => c.homeAway === 'away').team;
         const leagueSlug = jogo._leagueSlug;
 
-        const homeStats = await getTeamMetrics(home.id, leagueSlug);
-        const awayStats = await getTeamMetrics(away.id, leagueSlug);
+        // Dispara a busca de home e away em paralelo
+        const [homeStats, awayStats] = await Promise.all([
+            getTeamMetrics(home.id, leagueSlug),
+            getTeamMetrics(away.id, leagueSlug)
+        ]);
 
-        if (!homeStats || !awayStats) continue;
+        if (!homeStats || !awayStats) return null;
 
-        resultadoFinal.push({
+        return {
             liga: jogo._leagueName,
             fixtureId: jogo.id,
             jogo: `${home.name} x ${away.name}`,
             home: homeStats,
             away: awayStats
-        });
-    }
+        };
+    });
+
+    const resultados = await Promise.all(promessasAnalise);
+    const resultadoFinal = resultados.filter(j => j !== null);
 
     cachePorDia.set(date, resultadoFinal);
-    console.log("\n===== 🧠 JSON COM ESCANTEIOS ENVIADO AO DEEPSEEK =====");
+    console.log("\n===== 🧠 JSON COM DESFALQUES ENVIADO AO SNIPER =====");
     console.log(JSON.stringify(resultadoFinal, null, 2));
     return resultadoFinal;
 }
@@ -61,8 +86,23 @@ async function getTeamMetrics(teamId, leagueSlug) {
     if (cacheTeamStats.has(key)) return cacheTeamStats.get(key);
 
     try {
-        const resSchedule = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`);
+        // Chamada de Schedule (Métricas) e Roster (Desfalques) em paralelo
+        const [resSchedule, resRoster] = await Promise.all([
+            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`),
+            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/roster`)
+        ]);
+
         const dataSchedule = await resSchedule.json();
+        const dataRoster = await resRoster.json();
+
+        // Extração de desfalques (Injuries)
+        let desfalques = [];
+        if (dataRoster.athletes) {
+            desfalques = dataRoster.athletes
+                .flatMap(pos => pos.items)
+                .filter(player => player.injuries && player.injuries.length > 0)
+                .map(player => `${player.displayName} (${player.injuries[0].status})`);
+        }
 
         const jogosEncerrados = (dataSchedule.events || [])
             .filter(e => e.competitions[0].status.type.completed)
@@ -93,7 +133,6 @@ async function getTeamMetrics(teamId, leagueSlug) {
                 return s ? parseFloat(s.displayValue) || 0 : 0;
             };
 
-            // Coleta de dados reais
             let xg = getStat(myTeam, 'expectedGoals') || (getStat(myTeam, 'shotsOnTarget') * 0.3);
             let xga = getStat(oppTeam, 'expectedGoals') || (getStat(oppTeam, 'shotsOnTarget') * 0.3);
             let cornersF = getStat(myTeam, 'wonCorners');
@@ -114,7 +153,8 @@ async function getTeamMetrics(teamId, leagueSlug) {
             xGA: Number((statsSomadas.xGA / jogosValidos).toFixed(2)),
             escanteiosFavor: Number((statsSomadas.cornersFor / jogosValidos).toFixed(2)),
             escanteiosContra: Number((statsSomadas.cornersAgainst / jogosValidos).toFixed(2)),
-            pressure: Number((statsSomadas.pressure / jogosValidos).toFixed(2))
+            pressure: Number((statsSomadas.pressure / jogosValidos).toFixed(2)),
+            desfalques: desfalques.length > 0 ? desfalques : ["Nenhum desfalque crítico"]
         };
 
         cacheTeamStats.set(key, metrics);

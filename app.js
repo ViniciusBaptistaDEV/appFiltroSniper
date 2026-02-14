@@ -63,55 +63,71 @@ async function gerarPDF() {
     const dataSelecionada = document.getElementById("dateInput").value;
     const btnPDF = document.querySelector("#btnPDF");
 
-    // Feedback visual
+    if (!elementoOriginal || elementoOriginal.children.length === 0) {
+        alert("Aguarde a análise carregar antes de baixar o PDF.");
+        return;
+    }
+
     const textoOriginal = btnPDF.innerText;
-    btnPDF.innerText = "⏳ Processando...";
+    btnPDF.innerText = "⏳ Gerando...";
     btnPDF.disabled = true;
 
-    // Criar um container para o PDF
+    // 1. Criar o container visível, mas posicionado atrás do site
     const divTemporaria = document.createElement('div');
-    
-    // Configuração de estilo forçado para evitar fundo branco/texto branco
+    divTemporaria.id = "temp-pdf-container";
+    divTemporaria.style.position = "fixed";
+    divTemporaria.style.top = "0";
+    divTemporaria.style.left = "0";
+    divTemporaria.style.width = "790px"; // Largura próxima ao A4
+    divTemporaria.style.zIndex = "-1000"; // Fica atrás de tudo
     divTemporaria.style.backgroundColor = "#ffffff";
     divTemporaria.style.color = "#000000";
     divTemporaria.style.padding = "30px";
-    divTemporaria.style.width = "800px";
-    divTemporaria.style.position = "absolute";
-    divTemporaria.style.left = "-9999px";
-    
-    // Título no PDF
+    divTemporaria.style.visibility = "visible";
+
+    // 2. Título e cabeçalho
     const h1 = document.createElement('h1');
     h1.style.textAlign = "center";
-    h1.style.color = "#000";
-    h1.innerText = `Filtro Sniper - Análise ${dataSelecionada}`;
+    h1.style.color = "#1a202c";
+    h1.style.marginBottom = "5px";
+    h1.innerText = "🎯 RELATÓRIO FILTRO SNIPER";
+    
+    const p = document.createElement('p');
+    p.style.textAlign = "center";
+    p.style.marginBottom = "20px";
+    p.style.color = "#4a5568";
+    p.innerText = `Data da Rodada: ${dataSelecionada}`;
+    
     divTemporaria.appendChild(h1);
+    divTemporaria.appendChild(p);
     divTemporaria.appendChild(document.createElement('hr'));
 
-    // Clonar e limpar estilos dos cards para o PDF
+    // 3. Clonar e aplicar estilos específicos de impressão
     const clone = elementoOriginal.cloneNode(true);
     const cards = clone.querySelectorAll('.analysis-card');
     
     cards.forEach(card => {
-        card.style.backgroundColor = "#f8fafc";
-        card.style.color = "#000000";
-        card.style.border = "1px solid #ddd";
+        card.style.backgroundColor = "#ffffff";
+        card.style.color = "#1a202c";
+        card.style.border = "1px solid #e2e8f0";
         card.style.borderLeft = "6px solid #22c55e";
-        card.style.marginBottom = "20px";
+        card.style.marginBottom = "15px";
         card.style.padding = "20px";
-        card.style.display = "block";
         card.style.borderRadius = "8px";
+        card.style.display = "block";
+        card.style.pageBreakInside = "avoid"; // Evita quebra no meio do card
         
-        // Garante que negritos apareçam
         const strongs = card.querySelectorAll('strong');
-        strongs.forEach(s => s.style.color = "#000");
+        strongs.forEach(s => s.style.color = "#000000");
 
-        // Estiliza os Badges manualmente para o PDF
         const badges = card.querySelectorAll('.badge');
         badges.forEach(b => {
             b.style.display = "inline-block";
-            b.style.padding = "3px 8px";
-            b.style.color = "#fff";
+            b.style.padding = "2px 8px";
+            b.style.color = "#ffffff";
             b.style.borderRadius = "4px";
+            b.style.fontSize = "12px";
+            b.style.fontWeight = "bold";
             if(b.classList.contains('verde')) b.style.backgroundColor = "#16a34a";
             if(b.classList.contains('amarela')) b.style.backgroundColor = "#ca8a04";
             if(b.classList.contains('vermelha')) b.style.backgroundColor = "#dc2626";
@@ -121,26 +137,28 @@ async function gerarPDF() {
     divTemporaria.appendChild(clone);
     document.body.appendChild(divTemporaria);
 
-    // Configurações do PDF
+    // 4. Configurações para forçar a captura correta
     const opt = {
-        margin: 10,
-        filename: `Analise_Sniper_${dataSelecionada}.pdf`,
-        image: { type: 'jpeg', quality: 1.0 },
+        margin: [10, 5, 10, 5],
+        filename: `Sniper_Analise_${dataSelecionada}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
             scale: 2, 
-            useCORS: true, 
-            logging: false,
-            letterRendering: true
+            useCORS: true,
+            scrollY: 0, // CRÍTICO: ignora onde a página real está scrollada
+            windowWidth: 850 
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
     try {
-        // Pequena pausa para garantir que o DOM renderizou a divTemporaria
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Aguarda um pouco para o navegador "desenhar" a div no background
+        await new Promise(resolve => setTimeout(resolve, 800));
         await html2pdf().set(opt).from(divTemporaria).save();
     } catch (e) {
         console.error("Erro no PDF:", e);
+        alert("Erro ao gerar PDF. Tente novamente.");
     } finally {
         document.body.removeChild(divTemporaria);
         btnPDF.innerText = textoOriginal;
