@@ -12,7 +12,7 @@ export default async function handler(req, res) {
       model: "deepseek/deepseek-chat",
       temperature: 0.1,
       // 🔥 AUMENTO DE LIMITE: Permite que a IA escreva um relatório longo para os 15 jogos
-      max_tokens: 4000,
+      max_tokens: 7000,
       messages: [
         {
           role: "system",

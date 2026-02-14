@@ -138,3 +138,98 @@ pre {
     line-height: 1.6;
     color: #e2e8f0;
 }
+
+/* Container dos resultados mudou de <pre> para <div> */
+#resultado {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.analysis-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-left: 5px solid #22c55e;
+    /* Barra lateral verde estilo Sniper */
+    border-radius: 8px;
+    padding: 20px;
+    line-height: 1.6;
+    color: #e2e8f0;
+    transition: transform 0.2s ease;
+}
+
+.analysis-card:hover {
+    transform: scale(1.01);
+    border-color: #22c55e;
+}
+
+/* Badges de Flag */
+.badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    margin-left: 5px;
+}
+
+.verde {
+    background: #16a34a;
+    color: white;
+}
+
+.amarela {
+    background: #ca8a04;
+    color: white;
+}
+
+.vermelha {
+    background: #dc2626;
+    color: white;
+}
+
+.analysis-card strong {
+    color: #fff;
+    font-size: 1.1rem;
+}
+
+/* 📱 AJUSTES PARA CELULAR (Telas menores que 600px) */
+@media (max-width: 600px) {
+    body {
+        padding: 15px 10px;
+        /* Reduz o espaço nas bordas */
+    }
+
+    .container {
+        padding: 25px 15px;
+        /* Deixa o conteúdo mais apertado */
+    }
+
+    h1 {
+        font-size: 1.8rem;
+        /* Diminui o título para não quebrar linha */
+    }
+
+    .controls {
+        flex-direction: column;
+        /* Coloca o calendário em cima do botão */
+        align-items: stretch;
+    }
+
+    input[type="date"],
+    button {
+        width: 100%;
+        /* Botões e inputs ocupam a largura toda */
+        font-size: 1.1rem;
+        /* Aumenta o tamanho para facilitar o toque com o dedo */
+    }
+
+    .analysis-card {
+        padding: 15px;
+        font-size: 0.95rem;
+        /* Fonte levemente menor para caber mais informação */
+    }
+
+    .analysis-card strong {
+        font-size: 1rem;
+    }
+}
