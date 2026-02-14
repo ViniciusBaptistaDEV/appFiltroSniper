@@ -9,11 +9,11 @@ const ALLOWED_LEAGUES = [
     'por.1',            // Liga Portugal (Portugal)
     'tur.1',            // Süper Lig (Turquia)
     'sco.1',            // Scottish Premiership (Escócia)
-    
+
     // --- Competições Continentais e Mundiais ---
     'uefa.champions',   // UEFA Champions League
     'fifa.world',       // Copa do Mundo da FIFA
-    
+
     // --- Copas Nacionais (Knockout Cups) ---
     'eng.fa',           // FA Cup (Copa da Inglaterra)
     'esp.copa_del_rey', // Copa del Rey (Copa do Rei - Espanha)
@@ -46,7 +46,7 @@ export async function buscarJogos(date) {
 
     const resultadosLigas = await Promise.all(promessasLigas);
     // Reduzido para 8 jogos para garantir que as 60+ chamadas de API caibam nos 10s da Vercel
-    const jogosDoDia = resultadosLigas.flat().slice(0, 15); 
+    const jogosDoDia = resultadosLigas.flat().slice(0, 8);
 
     // MUDANÇA CHAVE: Promise.all no map para disparar todos os jogos ao mesmo tempo
     const promessasAnalise = jogosDoDia.map(async (jogo) => {
@@ -86,26 +86,26 @@ async function getTeamMetrics(teamId, leagueSlug) {
     if (cacheTeamStats.has(key)) return cacheTeamStats.get(key);
 
     try {
-        // Chamada de Schedule (Métricas) e Roster (Desfalques) em paralelo
+        // Mudança 1: Usamos blocos individuais ou Promise.all com catch para não quebrar tudo
         const [resSchedule, resRoster] = await Promise.all([
-            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`),
-            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/roster`)
+            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/schedule`).then(r => r.json()).catch(() => ({})),
+            fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueSlug}/teams/${teamId}/roster`).then(r => r.json()).catch(() => ({}))
         ]);
 
-        const dataSchedule = await resSchedule.json();
-        const dataRoster = await resRoster.json();
+        let desfalques = ["Informação de elenco indisponível"];
 
-        // Extração de desfalques (Injuries)
-        let desfalques = [];
-        if (dataRoster.athletes) {
-            desfalques = dataRoster.athletes
-                .flatMap(pos => pos.items)
+        // Mudança 2: Verificação segura para não dar erro de "undefined"
+        if (resRoster && resRoster.athletes) {
+            const lista = resRoster.athletes
+                .flatMap(pos => pos.items || [])
                 .filter(player => player.injuries && player.injuries.length > 0)
                 .map(player => `${player.displayName} (${player.injuries[0].status})`);
+
+            if (lista.length > 0) desfalques = lista;
         }
 
-        const jogosEncerrados = (dataSchedule.events || [])
-            .filter(e => e.competitions[0].status.type.completed)
+        const jogosEncerrados = (resSchedule.events || [])
+            .filter(e => e.competitions && e.competitions[0].status.type.completed)
             .slice(-5);
 
         if (jogosEncerrados.length === 0) return null;
@@ -154,11 +154,14 @@ async function getTeamMetrics(teamId, leagueSlug) {
             escanteiosFavor: Number((statsSomadas.cornersFor / jogosValidos).toFixed(2)),
             escanteiosContra: Number((statsSomadas.cornersAgainst / jogosValidos).toFixed(2)),
             pressure: Number((statsSomadas.pressure / jogosValidos).toFixed(2)),
-            desfalques: desfalques.length > 0 ? desfalques : ["Nenhum desfalque crítico"]
+            desfalques: desfalques
         };
 
         cacheTeamStats.set(key, metrics);
         return metrics;
 
-    } catch (e) { return null; }
+    } catch (e) {
+        console.error("Erro ao buscar métricas:", e);
+        return null;
+    }
 }
