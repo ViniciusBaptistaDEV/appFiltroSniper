@@ -122,6 +122,11 @@ async function getTeamStats(teamId, leagueId, season, headers) {
 
     const data = await res.json();
 
+    // 🚨 O DETETIVE: Imprime o erro exato que a API devolveu
+    if (data.errors && Object.keys(data.errors).length > 0) {
+        console.error(`🚨 ERRO DA API-SPORTS (Equipa ${teamId}):`, data.errors);
+    }
+
     // Proteção caso a API devolva vazio
     if (!data || !data.response || Object.keys(data.response).length === 0) {
         return null;
@@ -164,6 +169,11 @@ async function calcularLast5Metricas(teamId, headers) {
     );
 
     const data = await res.json();
+
+    // 🚨 O DETETIVE AQUI TAMBÉM
+    if (data.errors && Object.keys(data.errors).length > 0) {
+        console.error(`🚨 ERRO DA API-SPORTS (Últimos 5 jogos - Equipa ${teamId}):`, data.errors);
+    }
 
     if (!data || !data.response || data.response.length === 0) {
         return null;
