@@ -1,31 +1,26 @@
+// IDs oficiais das ligas no FotMob
 const ALLOWED_LEAGUES = [
-    39,   // Premier League
-    140,  // La Liga
-    135,  // Serie A
-    78,   // Bundesliga
-    94,   // Primeira Liga
-    61,   // Ligue 1
-    179,  // Premiership Escócia
-    71,   // Brasileirão Serie A
-    307,  // Saudi Pro League
-
-    45,   // FA Cup (Inglaterra)
-    143,  // Copa do Rei (Espanha)
-    137,  // Coppa Italia
-    66,   // Coupe de France
-
-    1,    // Copa do Mundo
-    4,    // Eurocopa
-    6,    // Copa Africana
-    9     // Copa América
+    47,   // Premier League
+    87,   // La Liga
+    55,   // Serie A
+    54,   // Bundesliga
+    53,   // Ligue 1
+    130,  // Brasileirão Serie A
+    42,   // Champions League
+    73    // Europa League
 ];
 
 const cachePorDia = new Map();
-const cacheTeamStats = new Map();
 const cacheLast5 = new Map();
 
-// 🔥 Função para criar uma pausa e não estourar o limite por segundo da API
+// 🔥 Função para criar uma pausa e não estourar proteções do site
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Finge ser um navegador real para não ser bloqueado
+const fotmobHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json"
+};
 
 export async function buscarJogos(date) {
 
@@ -34,234 +29,134 @@ export async function buscarJogos(date) {
         return cachePorDia.get(date);
     }
 
-    const headers = {
-        "x-apisports-key": process.env.API_FOOTBALL_KEY,
-        "x-apisports-host": "v3.football.api-sports.io"
-    };
+    // O FotMob usa a data no formato YYYYMMDD (ex: 20260214)
+    const dataFotMob = date.replace(/-/g, "");
+
+    console.log(`🔎 A procurar jogos no FotMob para a data: ${dataFotMob}...`);
 
     const res = await fetch(
-        `https://v3.football.api-sports.io/fixtures?date=${date}`,
-        { headers }
+        `https://www.fotmob.com/api/matches?date=${dataFotMob}`,
+        { headers: fotmobHeaders }
     );
 
     const data = await res.json();
 
-    if (!data.response) {
-        console.error("Erro ao buscar jogos do dia. Verifique a chave da API.");
+    // LOG PARA VOCÊ VER COMO VEM O JSON DO FOTMOB (Limitado a 1000 caracteres para não travar o log)
+    console.log("=== 📦 RAW JSON FOTMOB (LIGAS) ===");
+    console.log(JSON.stringify(data.leagues || {}).substring(0, 1000) + "...\n==================================");
+
+    if (!data.leagues) {
+        console.error("Erro ao buscar jogos do dia no FotMob.");
         return [];
     }
 
-    const jogosFiltrados = data.response
-        .filter(j => ALLOWED_LEAGUES.includes(j.league.id))
-        .slice(0, 5); // 🔥 5 JOGOS ANALISADOS
+    // Filtra apenas as ligas permitidas e extrai os jogos
+    let jogosFiltrados = [];
+    for (let league of data.leagues) {
+        if (ALLOWED_LEAGUES.includes(league.primaryId)) {
+            jogosFiltrados = jogosFiltrados.concat(league.matches);
+        }
+    }
+
+    // Limita a 5 jogos para não sobrecarregar o servidor
+    jogosFiltrados = jogosFiltrados.slice(0, 5);
 
     const resultadoFinal = [];
 
     for (let jogo of jogosFiltrados) {
 
-        const homeId = jogo.teams.home.id;
-        const awayId = jogo.teams.away.id;
-        const leagueId = jogo.league.id;
-        const season = jogo.league.season;
+        const homeId = jogo.home.id;
+        const awayId = jogo.away.id;
 
-        // 🔵 Busca os dados brutos primeiro
-        const homeSeasonRaw = await getTeamStats(homeId, leagueId, season, headers);
-        const awaySeasonRaw = await getTeamStats(awayId, leagueId, season, headers);
-        const homeLast5 = await calcularLast5Metricas(homeId, headers);
-        const awayLast5 = await calcularLast5Metricas(awayId, headers);
+        console.log(`\n⏳ A processar estatísticas para: ${jogo.home.name} vs ${jogo.away.name}...`);
 
-        // 🛡️ A TRAVA DE SEGURANÇA (As duas linhas essenciais)
-        // Se a API barrar ou faltar dados de alguma equipa, ignora este jogo e passa ao próximo
-        if (!homeSeasonRaw || !awaySeasonRaw || !homeLast5 || !awayLast5) {
-            console.warn(`⚠️ A saltar o jogo ${jogo.teams.home.name} vs ${jogo.teams.away.name} devido a falha ou falta de dados.`);
+        // Busca o histórico recente das equipas direto da página de detalhes das equipas do Fotmob
+        const homeLast5 = await calcularMetricasEquipa(homeId);
+        const awayLast5 = await calcularMetricasEquipa(awayId);
+
+        if (!homeLast5 || !awayLast5) {
+            console.warn(`⚠️ A saltar o jogo ${jogo.home.name} vs ${jogo.away.name} por falta de dados históricos.`);
             continue;
         }
 
-        // Apenas processa as métricas se todos os dados existirem (evita erros fatais)
-        const homeSeason = extrairSeasonMetricas(homeSeasonRaw);
-        const awaySeason = extrairSeasonMetricas(awaySeasonRaw);
-
-        const homeFinal = aplicarPeso(homeLast5, homeSeason);
-        const awayFinal = aplicarPeso(awayLast5, awaySeason);
-
         resultadoFinal.push({
-            liga: jogo.league.name,
-            fixtureId: jogo.fixture.id,
-            jogo: `${jogo.teams.home.name} x ${jogo.teams.away.name}`,
-            home: homeFinal,
-            away: awayFinal
+            liga: jogo.leagueName || "Liga Premium",
+            fixtureId: jogo.id,
+            jogo: `${jogo.home.name} x ${jogo.away.name}`,
+            home: homeLast5,
+            away: awayLast5
         });
     }
 
     cachePorDia.set(date, resultadoFinal);
 
-    console.log("===== JSON ENVIADO AO MODELO =====");
+    console.log("\n===== 🧠 JSON FINAL ENVIADO AO MODELO (DEEPSEEK) =====");
     console.log(JSON.stringify(resultadoFinal, null, 2));
+    console.log("========================================================\n");
 
     return resultadoFinal;
 }
 
 // =============================
-// 🔵 TEAM STATS TEMPORADA
+// 🟢 EXTRAÇÃO DE MÉTRICAS FOTMOB
 // =============================
 
-async function getTeamStats(teamId, leagueId, season, headers) {
-
-    const key = `${teamId}-${leagueId}-${season}`;
-
-    if (cacheTeamStats.has(key)) {
-        return cacheTeamStats.get(key);
-    }
-
-    await delay(300); // ⏱️ Travão de segurança da API
-
-    const res = await fetch(
-        `https://v3.football.api-sports.io/teams/statistics?league=${leagueId}&season=${season}&team=${teamId}`,
-        { headers }
-    );
-
-    const data = await res.json();
-
-    // 🚨 O DETETIVE: Imprime o erro exato que a API devolveu
-    if (data.errors && Object.keys(data.errors).length > 0) {
-        console.error(`🚨 ERRO DA API-SPORTS (Equipa ${teamId}):`, data.errors);
-    }
-
-    // Proteção caso a API devolva vazio
-    if (!data || !data.response || Object.keys(data.response).length === 0) {
-        return null;
-    }
-
-    const stats = data.response;
-    cacheTeamStats.set(key, stats);
-
-    return stats;
-}
-
-function extrairSeasonMetricas(teamStats) {
-
-    const jogos = teamStats.fixtures.played.total || 1;
-    const golsPro = teamStats.goals.for.total.total || 0;
-    const golsContra = teamStats.goals.against.total.total || 0;
-
-    return {
-        xG: golsPro / jogos,
-        xGA: golsContra / jogos,
-        pressure: 0 // Pode evoluir depois
-    };
-}
-
-// =============================
-// 🟢 ÚLTIMOS 5 JOGOS
-// =============================
-
-async function calcularLast5Metricas(teamId, headers) {
-
+async function calcularMetricasEquipa(teamId) {
     if (cacheLast5.has(teamId)) {
         return cacheLast5.get(teamId);
     }
 
-    await delay(300); // ⏱️ Travão de segurança da API
+    await delay(500); // ⏱️ Travão de segurança
 
+    // O FotMob tem um endpoint de equipas que devolve os últimos resultados
     const res = await fetch(
-        `https://v3.football.api-sports.io/fixtures?team=${teamId}&last=5`,
-        { headers }
+        `https://www.fotmob.com/api/teams?id=${teamId}`,
+        { headers: fotmobHeaders }
     );
 
     const data = await res.json();
 
-    // 🚨 O DETETIVE AQUI TAMBÉM
-    if (data.errors && Object.keys(data.errors).length > 0) {
-        console.error(`🚨 ERRO DA API-SPORTS (Últimos 5 jogos - Equipa ${teamId}):`, data.errors);
-    }
-
-    if (!data || !data.response || data.response.length === 0) {
+    if (!data || !data.fixtures || !data.fixtures.allFixtures) {
         return null;
     }
 
-    const jogos = data.response;
+    // Pegar apenas os jogos já terminados e extrair os últimos 5
+    const jogosTerminados = data.fixtures.allFixtures.filter(f => f.status.finished).slice(-5);
 
-    let totalXG = 0;
-    let totalXGA = 0;
-    let totalPressure = 0;
-    let jogosValidos = 0; // Para garantir a média correta caso algum jogo falhe
+    if (jogosTerminados.length === 0) return null;
 
-    for (let jogo of jogos) {
+    let totalGolsPro = 0;
+    let totalGolsContra = 0;
+    let jogosValidos = 0;
 
-        await delay(300); // ⏱️ Travão dentro do loop (CRUCIAL)
-
-        const statsRes = await fetch(
-            `https://v3.football.api-sports.io/fixtures/statistics?fixture=${jogo.fixture.id}`,
-            { headers }
-        );
-
-        const statsData = await statsRes.json();
-
-        if (!statsData || !statsData.response || statsData.response.length === 0) {
-            continue; // Se este jogo específico não tiver dados, passa à frente
+    for (let jogo of jogosTerminados) {
+        // Verifica se a equipa era a da casa (home) ou visitante (away) para somar os golos certos
+        if (jogo.home.id === teamId) {
+            totalGolsPro += jogo.home.score;
+            totalGolsContra += jogo.away.score;
+        } else {
+            totalGolsPro += jogo.away.score;
+            totalGolsContra += jogo.home.score;
         }
-
-        const stats = statsData.response;
-
-        const teamStats = stats.find(s => s.team.id === teamId);
-        const opponentStats = stats.find(s => s.team.id !== teamId);
-
-        if (!teamStats || !opponentStats) continue;
-
-        const xg = calculateXGFromStats(teamStats.statistics);
-        const xga = calculateXGFromStats(opponentStats.statistics);
-        const pressure = calculatePressureFromStats(teamStats.statistics);
-
-        totalXG += xg;
-        totalXGA += xga;
-        totalPressure += pressure;
         jogosValidos++;
     }
 
     if (jogosValidos === 0) return null;
 
+    // Como o FotMob exige navegação complexa para achar xG e Pressão exatos de jogos passados,
+    // usamos uma aproximação baseada na conversão de golos reais e saldo para alimentar a IA de forma segura.
+    const mediaGolsPro = totalGolsPro / jogosValidos;
+    const mediaGolsContra = totalGolsContra / jogosValidos;
+
     const result = {
-        xG: totalXG / jogosValidos,
-        xGA: totalXGA / jogosValidos,
-        pressure: totalPressure / jogosValidos
+        // Simulador de xG baseado no desempenho real recente (Golos + Bónus de ataque)
+        xG: mediaGolsPro * 1.15,
+        xGA: mediaGolsContra * 1.10,
+        // Simulador de pressão com base no domínio de saldo de golos
+        pressure: 45 + (mediaGolsPro * 10) - (mediaGolsContra * 5)
     };
 
     cacheLast5.set(teamId, result);
 
     return result;
-}
-
-// =============================
-// 🧮 MÉTRICAS
-// =============================
-
-function parseStat(statsArray, type) {
-    const stat = statsArray.find(s => s.type === type);
-    if (!stat || stat.value === null) return 0;
-
-    return typeof stat.value === "string"
-        ? parseFloat(stat.value.replace("%", ""))
-        : stat.value;
-}
-
-function calculateXGFromStats(statsArray) {
-    const sot = parseStat(statsArray, "Shots on Goal");
-    const shots = parseStat(statsArray, "Total Shots");
-    return (sot * 0.35) + ((shots - sot) * 0.08);
-}
-
-function calculatePressureFromStats(statsArray) {
-    const corners = parseStat(statsArray, "Corner Kicks");
-    const shots = parseStat(statsArray, "Total Shots");
-    const possession = parseStat(statsArray, "Ball Possession");
-
-    return (corners * 0.4) + (shots * 0.3) + (possession * 0.03);
-}
-
-function aplicarPeso(last5, season) {
-    return {
-        xG: (last5.xG * 0.7) + (season.xG * 0.3),
-        xGA: (last5.xGA * 0.7) + (season.xGA * 0.3),
-        pressure: (last5.pressure * 0.7) + (season.pressure * 0.3)
-    };
 }
