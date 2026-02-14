@@ -42,8 +42,8 @@ export async function buscarJogos(date) {
 
     const resultadosLigas = await Promise.all(promessasLigas);
 
-    // Junta todos os jogos encontrados e limita a 5 para poupar os créditos da sua IA
-    const jogosDoDia = resultadosLigas.flat().slice(0, 5);
+    // Junta todos os jogos encontrados e limita a 15
+    const jogosDoDia = resultadosLigas.flat().slice(0, 15);
 
     const resultadoFinal = [];
 

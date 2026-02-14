@@ -3,19 +3,34 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Filtro Sniper - Análise</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro Sniper - Inteligência Artificial</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
     <div class="container">
-        <h1>🎯 FILTRO SNIPER</h1>
+        <header>
+            <h1>🎯 FILTRO <span class="highlight">SNIPER</span></h1>
+            <p class="subtitle">Análise Tática Avançada e Probabilidades via IA</p>
+        </header>
 
-        <input type="date" id="dateInput" />
-        <button onclick="analisar()">Analisar Jogos</button>
+        <div class="controls">
+            <input type="date" id="dateInput" />
+            <button onclick="analisar()" id="btnAnalisar">
+                <span id="btnText">Analisar Jogos</span>
+            </button>
+        </div>
 
-        <pre id="resultado"></pre>
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>O DeepSeek está analisando os dados da ESPN. Isto pode demorar alguns segundos...</p>
+        </div>
+
+        <div id="resultCard" class="hidden">
+            <pre id="resultado"></pre>
+        </div>
     </div>
 
     <script src="app.js"></script>
