@@ -227,13 +227,7 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 
 /* Estilo específico para quando o botão de PDF for clicado */
 #btnPDF {
-    background: #475569;
-    border: 1px solid #64748b;
     margin-bottom: 20px;
-}
-
-#btnPDF:hover {
-    background: #64748b;
 }
 
 /* Regra de impressão: esconde o botão de baixar quando o PDF é gerado */

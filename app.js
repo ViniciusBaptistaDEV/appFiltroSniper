@@ -62,19 +62,39 @@ function gerarPDF() {
     const elemento = document.getElementById("resultado");
     const dataSelecionada = document.getElementById("dateInput").value;
 
-    // Configurações do PDF
+    // Criamos um clone para formatar apenas o PDF sem estragar o visual do site
+    const clone = elemento.cloneNode(true);
+
+    // Ajuste de estilo para o PDF ser legível (Fundo branco, texto preto)
+    clone.style.backgroundColor = "#ffffff";
+    clone.style.color = "#000000";
+    clone.style.padding = "20px";
+
+    // Ajusta todos os cards dentro do clone para terem fundo claro e bordas cinzas
+    const cards = clone.querySelectorAll('.analysis-card');
+    cards.forEach(card => {
+        card.style.backgroundColor = "#f8fafc";
+        card.style.color = "#1e293b";
+        card.style.borderColor = "#cbd5e1";
+        card.style.marginBottom = "15px";
+    });
+
+    // Ajusta as cores das fontes fortes (strong) para preto
+    const strongs = clone.querySelectorAll('strong');
+    strongs.forEach(s => s.style.color = "#000000");
+
     const options = {
         margin: [10, 10, 10, 10],
         filename: `Filtro_Sniper_Analise_${dataSelecionada}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
             scale: 2,
-            backgroundColor: "#0b1120", // Mantém o fundo escuro no PDF
+            backgroundColor: "#ffffff", // Fundo branco oficial
             useCORS: true
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
 
-    // Executa a conversão
-    html2pdf().set(options).from(elemento).save();
+    // Gera o PDF a partir do clone formatado
+    html2pdf().set(options).from(clone).save();
 }
