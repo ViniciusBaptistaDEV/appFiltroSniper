@@ -57,3 +57,24 @@ window.onload = () => {
     const hoje = new Date().toISOString().split('T')[0];
     document.getElementById('dateInput').value = hoje;
 };
+
+function gerarPDF() {
+    const elemento = document.getElementById("resultado");
+    const dataSelecionada = document.getElementById("dateInput").value;
+
+    // Configurações do PDF
+    const options = {
+        margin: [10, 10, 10, 10],
+        filename: `Filtro_Sniper_Analise_${dataSelecionada}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            backgroundColor: "#0b1120", // Mantém o fundo escuro no PDF
+            useCORS: true
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Executa a conversão
+    html2pdf().set(options).from(elemento).save();
+}

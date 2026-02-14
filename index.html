@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Filtro Sniper - Inteligência Artificial</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -25,11 +26,23 @@
 
         <div id="loading" class="hidden">
             <div class="spinner"></div>
-            <p>Estamos analisando todos os jogos do dia selecionado. Isto pode demorar alguns segundos...</p>
+            <p>
+                Estamos analisando todos os jogos do dia selecionado.<br />
+                <span class="loading-subtext">Isto pode demorar alguns segundos...</span>
+            </p>
         </div>
 
         <div id="resultCard" class="hidden">
             <div id="resultado"></div>
+        </div>
+    </div>
+
+    <div id="resultCard" class="hidden">
+        <div id="resultado"></div>
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="gerarPDF()" id="btnPDF" style="background: #334155; color: #fff;">
+                📥 Baixar Análise
+            </button>
         </div>
     </div>
 

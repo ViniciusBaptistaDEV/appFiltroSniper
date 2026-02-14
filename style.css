@@ -102,6 +102,13 @@ button:disabled {
     padding: 40px 0;
 }
 
+.loading-subtext {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    display: block; /* Garante que ela ocupe a linha de baixo */
+    margin-top: 5px;
+}
+
 .spinner {
     width: 50px;
     height: 50px;
@@ -216,6 +223,24 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
+}
+
+/* Estilo específico para quando o botão de PDF for clicado */
+#btnPDF {
+    background: #475569;
+    border: 1px solid #64748b;
+    margin-bottom: 20px;
+}
+
+#btnPDF:hover {
+    background: #64748b;
+}
+
+/* Regra de impressão: esconde o botão de baixar quando o PDF é gerado */
+@media print {
+    #btnPDF {
+        display: none !important;
+    }
 }
 
 /* 📱 AJUSTES PARA CELULAR (Telas menores que 600px) */
