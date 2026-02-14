@@ -16,11 +16,34 @@ const cacheLast5 = new Map();
 // 🔥 Função para criar uma pausa e não estourar proteções do site
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Finge ser um navegador real para não ser bloqueado
+
+// Finge ser um navegador real
 const fotmobHeaders = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept": "application/json"
 };
+
+// 🔥 NOVA FUNÇÃO: O "Túnel" que contorna o bloqueio de IP da Vercel
+async function fetchFotMobSeguro(urlOriginal) {
+    // Usamos o corsproxy (um túnel público gratuito) para esconder o IP da Vercel
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(urlOriginal)}`;
+
+    try {
+        const res = await fetch(proxyUrl, { headers: fotmobHeaders });
+        const text = await res.text(); // Lemos como texto primeiro para não quebrar
+
+        try {
+            return JSON.parse(text); // Tentamos converter para JSON
+        } catch (parseError) {
+            console.error("🚨 BLOQUEIO DETETADO! O site não devolveu JSON. Trecho da resposta:");
+            console.error(text.substring(0, 150) + "...");
+            return null; // Retorna null para o sistema saltar este jogo sem dar Erro 500
+        }
+    } catch (fetchError) {
+        console.error("🚨 Erro de conexão com o Proxy:", fetchError.message);
+        return null;
+    }
+}
 
 export async function buscarJogos(date) {
 
@@ -34,12 +57,14 @@ export async function buscarJogos(date) {
 
     console.log(`🔎 A procurar jogos no FotMob para a data: ${dataFotMob}...`);
 
-    const res = await fetch(
-        `https://www.fotmob.com/api/matches?date=${dataFotMob}`,
-        { headers: fotmobHeaders }
-    );
+    // COLOQUE ISTO:
+    const urlBusca = `https://www.fotmob.com/api/matches?date=${dataFotMob}`;
+    const data = await fetchFotMobSeguro(urlBusca);
 
-    const data = await res.json();
+    if (!data || !data.leagues) {
+        console.error("Falha ao puxar ligas. O JSON veio vazio ou bloqueado.");
+        return [];
+    }
 
     // LOG PARA VOCÊ VER COMO VEM O JSON DO FOTMOB (Limitado a 1000 caracteres para não travar o log)
     console.log("=== 📦 RAW JSON FOTMOB (LIGAS) ===");
@@ -108,13 +133,14 @@ async function calcularMetricasEquipa(teamId) {
 
     await delay(500); // ⏱️ Travão de segurança
 
-    // O FotMob tem um endpoint de equipas que devolve os últimos resultados
-    const res = await fetch(
-        `https://www.fotmob.com/api/teams?id=${teamId}`,
-        { headers: fotmobHeaders }
-    );
 
-    const data = await res.json();
+    // COLOQUE ISTO:
+    const urlEquipa = `https://www.fotmob.com/api/teams?id=${teamId}`;
+    const data = await fetchFotMobSeguro(urlEquipa);
+
+    if (!data || !data.fixtures || !data.fixtures.allFixtures) {
+        return null;
+    }
 
     if (!data || !data.fixtures || !data.fixtures.allFixtures) {
         return null;
