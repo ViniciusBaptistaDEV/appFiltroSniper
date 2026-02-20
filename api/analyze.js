@@ -105,18 +105,37 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   return text;
 }
 
+/**
+ * Parse JSON ultra-resiliente: Aceita JSON sujo, com markdown e
+ * corrige se o Gemini esquecer a chave "games".
+ */
 function safeJsonParseFromText(txt) {
   try {
-    // Limpeza radical: remove qualquer coisa antes do primeiro { e depois do último }
-    const first = txt.indexOf("{");
-    const last = txt.lastIndexOf("}");
-    if (first >= 0 && last > first) {
-      const cleanJson = txt.slice(first, last + 1);
-      return JSON.parse(cleanJson);
+    const firstBrace = txt.indexOf("{");
+    const firstBracket = txt.indexOf("[");
+
+    // Identifica onde começa o JSON de verdade (seja { ou [)
+    let start = -1;
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) start = firstBrace;
+    else if (firstBracket !== -1) start = firstBracket;
+
+    const lastBrace = txt.lastIndexOf("}");
+    const lastBracket = txt.lastIndexOf("]");
+    const end = Math.max(lastBrace, lastBracket);
+
+    if (start === -1 || end === -1) return null;
+
+    let cleanJson = txt.slice(start, end + 1);
+    let parsed = JSON.parse(cleanJson);
+
+    // MÁGICA: Se o Gemini retornar um array direto [...], 
+    // nós envelopamos em { "games": [...] } para não quebrar o pipeline
+    if (Array.isArray(parsed)) {
+      return { games: parsed };
     }
-    return JSON.parse(txt);
+    return parsed;
   } catch (e) {
-    console.error("🚨 FALHA NO PARSE JSON. Texto recebido:", txt.substring(0, 100) + "...");
+    console.error("🚨 ERRO NO PARSE:", e.message);
     return null;
   }
 }
@@ -149,32 +168,29 @@ async function fetchFootballDataMatches(date) {
 /**
 * Cruza os dados da ESPN com o Football-Data (Versão Sniper Ultra-Agressiva)
 */
+f/**
+ * Matcher de Times (Versão 3.0 - Flexível)
+ */
 function matchFootballData(espnGame, fdMatches) {
-  if (!fdMatches || !Array.isArray(fdMatches) || fdMatches.length === 0) return null;
+  if (!fdMatches || !Array.isArray(fdMatches)) return null;
 
-  const clean = (name) => {
-    if (!name) return "";
-    return String(name)
-      .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-      .replace(/\b(fc|fsv|sd|cf|afc|slb|cp|club|deportiva|clube|esporte|sc|stade|futebol|portugal|fbc|athletic|atletico|athletico|united|city|town|hotspur|f\.\c\.)\b/gi, "") // Remove siglas e termos comuns
-      .replace(/[^a-z0-9]/g, '') // Remove tudo que não é letra ou número (inclusive espaços e pontos)
-      .trim();
-  };
+  const normalize = (s) => String(s || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, ""); // Tira tudo, deixa só letras e números colados
 
-  const eHome = clean(espnGame.homeTeam);
-  const eAway = clean(espnGame.awayTeam);
+  const eH = normalize(espnGame.homeTeam);
+  const eA = normalize(espnGame.awayTeam);
 
-  return fdMatches.find(fd => {
-    const fHome = clean(fd.homeTeam?.name || fd.homeTeam?.shortName);
-    const fAway = clean(fd.awayTeam?.name || fd.awayTeam?.shortName);
+  return fdMatches.find(m => {
+    const fH = normalize(m.homeTeam?.name || m.homeTeam?.shortName);
+    const fA = normalize(m.awayTeam?.name || m.awayTeam?.shortName);
 
-    // Se o nome limpo de um estiver contido no outro, damos o match
-    // Ex: "mainz" está contido em "1fsvmainz05" -> MATCH!
-    const isHomeMatch = (eHome && fHome) && (fHome.includes(eHome) || eHome.includes(fHome));
-    const isAwayMatch = (eAway && fAway) && (fAway.includes(eAway) || eAway.includes(fAway));
+    // Verifica se um nome está contido no outro (ex: "mainz" em "1fsvmainz05")
+    const homeMatch = (eH.length > 3 && fH.includes(eH)) || (fH.length > 3 && eH.includes(fH)) || eH === fH;
+    const awayMatch = (eA.length > 3 && fA.includes(eA)) || (fA.length > 3 && eA.includes(fA)) || eA === fA;
 
-    return isHomeMatch && isAwayMatch;
+    return homeMatch && awayMatch;
   });
 }
 

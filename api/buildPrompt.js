@@ -1,4 +1,4 @@
-// Construtores de prompts para: Coleta (Gemini), Análise (DeepSeek/Gemini).
+// Construtores de prompts para: Coleta (Gemini), Análise (Estatística e Tática).
 // Mantém a profundidade técnica exigida pelo Filtro Sniper.
 
 export function montarPromptColetor(date, jogosESPN) {
@@ -26,17 +26,17 @@ SCHEMA TÉCNICO OBRIGATÓRIO (JSON):
         "probableLineup": ["string"],
         "injuries": ["string"],
         "suspended": ["string"],
-        "xG_last5": 0, // Média de Expected Goals nos últimos 5 jogos
-        "xGA_last5": 0, // Média de xG contra nos últimos 5 jogos
+        "xG_last5": 0,
+        "xGA_last5": 0,
         "bigChancesFor_last5": 0,
         "shotsOnTarget_last5": 0,
         "cornersFor_last5": 0,
         "cornersAgainst_last5": 0,
-        "style_tags": ["string"] // ex: "posse de bola", "contra-ataque rápido"
+        "style_tags": ["string"]
       },
       "awayTeam": { /* igual homeTeam */ },
       "table_context": { "home_position": 0, "away_position": 0, "motivation_note": "string" },
-      "noticias_recentes": "string" // Crises, demissões, salários atrasados, clima.
+      "noticias_recentes": "string"
     }
   ]
 }
@@ -46,7 +46,7 @@ RETORNE APENAS JSON.
 
 export function montarPromptAnaliseDeepSeek(date, enrichedJson) {
   return `
-ANALISADOR ESTATÍSTICO – DEEPSEEK (DATA: ${date})
+ANALISADOR ESTATÍSTICO SNIPER (DATA: ${date})
 
 FONTE DE DADOS PRIORITÁRIA:
 1. Verifique o nó "footballDataStats". Se ele contiver "odds" e "statistics", use-os como sua base matemática real.
@@ -56,23 +56,34 @@ O RIGOR DO FILTRO SNIPER:
 - Se o Coletor Web retornar 0 em xG ou cantos, mas o "footballDataStats" trouxer Odds de favorito (ex: 1.40), você DEVE considerar que o time é superior e usar a Posição na Tabela para validar a aposta.
 - NÃO ABORTE se houver Odds oficiais. Use a probabilidade implícita das odds para preencher o vácuo de dados do xG.
 
-CRITÉRIO DE FLAG VERDE:
-- Probabilidade calculada > 70% OU 
-- Odds de favorito + Disparidade de mais de 8 posições na tabela + Ausência de crises.
-
 JSON DE ENTRADA:
 ${JSON.stringify(enrichedJson, null, 2)}
 
-(Mantenha o schema de saída original com victory, goals, btts e corners)
+SUA RESPOSTA DEVE SER OBRIGATORIAMENTE NESTE FORMATO JSON:
+{
+  "games": [
+    {
+      "fixtureId": "string",
+      "markets": {
+        "victory": { "recommendation": "HOME|AWAY|NO_BET|DOUBLE_CHANCE_HOME|DOUBLE_CHANCE_AWAY", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string" },
+        "goals":   { "recommendation": "OVER_2_5|UNDER_2_5|NO_BET", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string" },
+        "btts":    { "recommendation": "YES|NO|NO_BET", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string" },
+        "corners": { "recommendation": "HOME_OVER_X|AWAY_OVER_X|GAME_OVER_X|NO_BET", "line": "number|null", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string" }
+      },
+      "overallFlag": "GREEN|YELLOW|RED"
+    }
+  ]
+}
+RETORNE APENAS O JSON, SEM MARKDOWN E SEM COMENTÁRIOS.
 `;
 }
 
 export function montarPromptAnaliseGemini(date, enrichedJson) {
   return `
-ANALISADOR TÁTICO – GEMINI (DATA: ${date})
+ANALISADOR TÁTICO SNIPER (DATA: ${date})
 
 SUA MISSÃO:
-Análise fria de contexto. O DeepSeek cuidou dos números; você cuida da "alma" do jogo.
+Análise fria de contexto. O modelo estatístico cuidou dos números; você cuida da "alma" do jogo.
 
 REGRAS SNIPER:
 1. Examine o "footballDataStats.odds". Se o mercado paga pouco (favorito), mas você detectou no Coletor que o time vai com reserva, ALERTE PARA RISCO e mude a recomendação para NO_BET.
@@ -82,6 +93,21 @@ REGRAS SNIPER:
 JSON DE ENTRADA:
 ${JSON.stringify(enrichedJson, null, 2)}
 
-(Mantenha o schema de saída original)
+SUA RESPOSTA DEVE SER OBRIGATORIAMENTE NESTE FORMATO JSON:
+{
+  "games": [
+    {
+      "fixtureId": "string",
+      "markets": {
+        "victory": { "recommendation": "HOME|AWAY|NO_BET|DOUBLE_CHANCE_HOME|DOUBLE_CHANCE_AWAY", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string (racional tático)" },
+        "goals":   { "recommendation": "OVER_2_5|UNDER_2_5|NO_BET", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string (racional tático)" },
+        "btts":    { "recommendation": "YES|NO|NO_BET", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string (racional tático)" },
+        "corners": { "recommendation": "HOME_OVER_X|AWAY_OVER_X|GAME_OVER_X|NO_BET", "line": "number|null", "flag": "GREEN|YELLOW|RED", "confidence": 0-100, "rationale": "string (racional tático)" }
+      },
+      "overallFlag": "GREEN|YELLOW|RED"
+    }
+  ]
+}
+RETORNE APENAS O JSON, SEM MARKDOWN E SEM COMENTÁRIOS.
 `;
 }
