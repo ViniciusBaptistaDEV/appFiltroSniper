@@ -71,9 +71,8 @@ const MODEL_TACTICS = process.env.GEM_TACTICS_MODEL || "gemini-2.5-pro";
 /**
 * Chama o Gemini 2.5 (Flash/Pro) (Google AI Studio) forçando saída em JSON.
 */
-async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
+async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch = false) {
   const apiKey = process.env.GEMINI_API_KEY;
-  // Alteração 1: Mudando de v1 para v1beta na URL
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const payload = {
@@ -82,7 +81,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
       temperature: 0.2,
       topP: 0.1,
       topK: 32,
-      // Alteração 2: Usando snake_case aqui
       response_mime_type: "application/json"
     },
     safetySettings: [
@@ -93,6 +91,13 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
     ]
   };
 
+  // LIGA A INTERNET SE O PARÂMETRO FOR TRUE
+  if (useSearch) {
+    payload.tools = [
+      { googleSearch: {} }
+    ];
+  }
+
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -100,7 +105,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
   });
   const data = await resp.json();
 
-  // 1. Pega erros da API (ex: Bad Request, Quota Exceeded)
   if (data.error) {
     console.error("🚨 ERRO DA API GEMINI:", JSON.stringify(data.error, null, 2));
     throw new Error(`API Gemini recusou: ${data.error.message}`);
@@ -108,7 +112,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
 
   const candidate = data?.candidates?.[0];
 
-  // 2. Pega bloqueios por segurança
   if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
     throw new Error(`Geração bloqueada pelo Gemini. Motivo: ${candidate.finishReason}`);
   }
@@ -419,17 +422,16 @@ export default async function handler(req, res) {
     // 2) Coleta (Gemini) – enriquecimento (com TTL)
     let enriched = getCache(CACHE_ENRICHED, date);
     if (!enriched) {
-      const promptCollector = montarPromptColetor(date, grade);
-      console.log(`[Gemini][Collector] model=${MODEL_COLLECTOR}`);
-      const geminiRaw = await callGeminiJSON(promptCollector, MODEL_COLLECTOR);
-      const parsed = safeJsonParseFromText(geminiRaw);
-      if (!parsed || !Array.isArray(parsed.enriched)) {
-        throw new Error("Coletor (Gemini) não retornou JSON válido com 'enriched'.");
+      const promptCol = montarPromptColetor(date, jogosESPN);
+      console.log(`[Gemini][Collector] model=${MODEL_COLLECTOR} | Search=ON`);
+
+      // O 'true' aqui no final liga a busca na internet para esta chamada!
+      const enrichedText = await callGeminiJSON(promptCol, MODEL_COLLECTOR, true);
+
+      enriched = safeJsonParseFromText(enrichedText);
+      if (!enriched || !Array.isArray(enriched.enriched)) {
+        throw new Error("Gemini (coletor) não retornou JSON válido com 'enriched'.");
       }
-      // Garantia extra: apenas fixtures presentes na grade ESPN
-      const validIds = new Set(grade.map(g => g.fixtureId));
-      parsed.enriched = parsed.enriched.filter(x => validIds.has(x.fixtureId));
-      enriched = parsed;
       setCache(CACHE_ENRICHED, date, enriched);
     }
 
