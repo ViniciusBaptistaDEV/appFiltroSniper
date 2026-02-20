@@ -6,7 +6,6 @@
 
 body {
     background: #0b1120;
-    /* Fundo super escuro moderno */
     color: #f8fafc;
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     padding: 40px 20px;
@@ -38,7 +37,6 @@ h1 {
 
 .highlight {
     color: #22c55e;
-    /* Verde Sniper */
 }
 
 .subtitle {
@@ -69,6 +67,21 @@ input[type="date"]:focus {
     border-color: #22c55e;
 }
 
+/* Estado desabilitado do campo de data */
+input[type="date"]:disabled {
+    background: #1f2937;
+    /* um pouco mais claro que #0f172a para diferenciar */
+    color: #94a3b8;
+    cursor: not-allowed;
+    border-color: #475569;
+}
+
+/* Evita hover/click no ícone do calendário quando desabilitado */
+input[type="date"]:disabled::-webkit-calendar-picker-indicator {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
 button {
     padding: 12px 30px;
     border-radius: 8px;
@@ -96,7 +109,7 @@ button:disabled {
     box-shadow: none;
 }
 
-/* O Loading Animado */
+/* Loading */
 #loading {
     text-align: center;
     padding: 40px 0;
@@ -105,7 +118,7 @@ button:disabled {
 .loading-subtext {
     font-size: 0.85rem;
     color: #94a3b8;
-    display: block; /* Garante que ela ocupe a linha de baixo */
+    display: block;
     margin-top: 5px;
 }
 
@@ -129,7 +142,7 @@ button:disabled {
     display: none !important;
 }
 
-/* O Cartão de Resultados */
+/* Cards */
 #resultCard {
     background: #0f172a;
     border-radius: 8px;
@@ -138,15 +151,6 @@ button:disabled {
     margin-top: 20px;
 }
 
-pre {
-    white-space: pre-wrap;
-    font-family: Consolas, Monaco, 'Courier New', monospace;
-    font-size: 1rem;
-    line-height: 1.6;
-    color: #e2e8f0;
-}
-
-/* Container dos resultados mudou de <pre> para <div> */
 #resultado {
     display: flex;
     flex-direction: column;
@@ -157,7 +161,6 @@ pre {
     background: #1e293b;
     border: 1px solid #334155;
     border-left: 5px solid #22c55e;
-    /* Barra lateral verde estilo Sniper */
     border-radius: 8px;
     padding: 20px;
     line-height: 1.6;
@@ -170,7 +173,6 @@ pre {
     border-color: #22c55e;
 }
 
-/* Badges de Flag */
 .badge {
     padding: 2px 8px;
     border-radius: 4px;
@@ -199,24 +201,22 @@ pre {
     font-size: 1.1rem;
 }
 
-/* Estilo para simular o placeholder no campo de data */
+/* “Placeholder” na data */
 input[type="date"]::before {
     content: attr(data-placeholder);
     width: 100%;
-    color: #94a3b8; /* Cor cinza suave */
+    color: #94a3b8;
 }
 
-/* Quando o campo ganha foco ou já tem uma data selecionada, esconde o placeholder */
 input[type="date"]:focus::before,
 input[type="date"]:valid::before {
     display: none;
     content: "";
 }
 
-/* Garante que o ícone do calendário do navegador fique visível e elegante */
 input[type="date"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
-    filter: invert(1); /* Deixa o ícone branco para combinar com o tema escuro */
+    filter: invert(1);
     opacity: 0.6;
     transition: 0.3s;
 }
@@ -225,53 +225,45 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
 }
 
-/* Estilo específico para quando o botão de PDF for clicado */
+/* Print */
 #btnPDF {
     margin-bottom: 20px;
 }
 
-/* Regra de impressão: esconde o botão de baixar quando o PDF é gerado */
 @media print {
     #btnPDF {
         display: none !important;
     }
 }
 
-/* 📱 AJUSTES PARA CELULAR (Telas menores que 600px) */
+/* Mobile */
 @media (max-width: 600px) {
     body {
         padding: 15px 10px;
-        /* Reduz o espaço nas bordas */
     }
 
     .container {
         padding: 25px 15px;
-        /* Deixa o conteúdo mais apertado */
     }
 
     h1 {
         font-size: 1.8rem;
-        /* Diminui o título para não quebrar linha */
     }
 
     .controls {
         flex-direction: column;
-        /* Coloca o calendário em cima do botão */
         align-items: stretch;
     }
 
     input[type="date"],
     button {
         width: 100%;
-        /* Botões e inputs ocupam a largura toda */
         font-size: 1.1rem;
-        /* Aumenta o tamanho para facilitar o toque com o dedo */
     }
 
     .analysis-card {
         padding: 15px;
         font-size: 0.95rem;
-        /* Fonte levemente menor para caber mais informação */
     }
 
     .analysis-card strong {

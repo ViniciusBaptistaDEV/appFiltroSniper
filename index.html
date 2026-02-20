@@ -3,13 +3,14 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Filtro Sniper - Inteligência Artificial</title>
+
+    <!-- Estilos principais -->
     <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-
     <div class="container">
         <header>
             <h1>🎯 FILTRO <span class="highlight">SNIPER</span></h1>
@@ -17,12 +18,16 @@
         </header>
 
         <div class="controls">
+            <!-- Campo de data (preenchido com hoje no onload do app.js) -->
             <input type="date" id="dateInput" data-placeholder="Escolha a data da rodada" required />
-            <button onclick="analisar()" id="btnAnalisar">
+            <!-- Clique normal: sempre aciona a análise; cache é controlado no backend com TTL -->
+            <button onclick="analisar()" id="btnAnalisar"
+                title="Sempre roda a análise; cache expira em 10 minutos automaticamente">
                 <span id="btnText">Analisar Jogos</span>
             </button>
         </div>
 
+        <!-- Loading -->
         <div id="loading" class="hidden">
             <div class="spinner"></div>
             <p>
@@ -31,16 +36,18 @@
             </p>
         </div>
 
+        <!-- Resultados formatados em cards -->
         <div id="resultCard" class="hidden">
             <div id="resultado"></div>
-            <div style="text-align: center; margin-top: 30px; display: flex; justify-content: center; gap: 10px;">
-                <button onclick="copiarTexto()" id="btnCopiar" style="cursor: pointer;">
+            <div style="text-align:center;margin-top:30px;display:flex;justify-content:center;gap:10px;">
+                <button onclick="copiarTexto()" id="btnCopiar" style="cursor:pointer;">
                     📋 Copiar Análise
                 </button>
             </div>
         </div>
     </div>
 
+    <!-- Lógica de UI -->
     <script src="app.js"></script>
 </body>
 
