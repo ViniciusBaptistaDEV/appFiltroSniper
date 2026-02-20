@@ -10,19 +10,27 @@ import {
   montarPromptAnaliseGemini
 } from "./buildPrompt.js";
 
+// 1. Limpeza agressiva das variáveis de ambiente (Remove aspas e espaços invisíveis)
+const cleanEnv = (key) => process.env[key]?.replace(/['"]/g, '').trim();
+
+const REDIS_URL = cleanEnv('UPSTASH_REDIS_REST_URL')?.replace(/\/$/, '');
+const REDIS_TOKEN = cleanEnv('UPSTASH_REDIS_REST_TOKEN');
+
+// 2. Garante que os modelos usem o ID correto e limpo
+const MODEL_COLLECTOR = cleanEnv('GEM_COLLECTOR_MODEL') || "gemini-2.5-flash";
+const MODEL_TACTICS = cleanEnv('GEM_TACTICS_MODEL') || "gemini-2.5-flash";
+
 /* ========================================================================================
 * CACHE GLOBAL (REDIS UPSTASH) - TTL 10m
 * ====================================================================================== */
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS) || 600; // Default: 600s (10 min)
 
 async function getCache(key) {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
+  if (!REDIS_URL || !REDIS_TOKEN) return null;
   try {
-    const res = await fetch(`${UPSTASH_URL}/get/${key}`, {
-      headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }
+    const res = await fetch(`${REDIS_URL}/get/${key}`, {
+      headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
     });
     const data = await res.json();
     if (!data.result) return null;
@@ -34,12 +42,12 @@ async function getCache(key) {
 }
 
 async function setCache(key, value) {
-  if (!UPSTASH_URL || !UPSTASH_TOKEN) return;
+  if (!REDIS_URL || !REDIS_TOKEN) return;
   try {
-    await fetch(UPSTASH_URL, {
+    await fetch(REDIS_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        Authorization: `Bearer ${REDIS_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify(["SET", key, JSON.stringify(value), "EX", CACHE_TTL])
@@ -52,10 +60,6 @@ async function setCache(key, value) {
 /* ========================================================================================
 * HELPERS HTTP (OpenRouter / Gemini / Football-Data)
 * ====================================================================================== */
-
-
-const MODEL_COLLECTOR = process.env.GEM_COLLECTOR_MODEL || "gemini-2.5-flash";
-const MODEL_TACTICS = process.env.GEM_TACTICS_MODEL || "gemini-2.5-pro";
 
 /**
 * Chama o Gemini 2.5 (Flash/Pro) forçando saída em JSON.
