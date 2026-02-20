@@ -73,17 +73,54 @@ function renderSectionsAsCards(sections) {
     const container = document.getElementById("resultado");
     container.innerHTML = sections.map(sec => {
         const flagClass = flagToClass(sec.flag);
-        const badge = sec.flag ? `<span class="badge ${flagClass}">${sec.flag}</span>` : "";
-        const groupTitle = sec.group ? `<div style="opacity:.9;margin-bottom:6px">${emojiForGroup(sec.group)} ${sec.group}</div>` : "";
-        const title = sec.title ? `<strong>${sec.title} ${badge}</strong>` : "";
-        const body = sec.body ? escapeHtml(sec.body).replace(/\n/g, "<br>") : "";
+
+        // Se for o card de Múltiplas, usamos um estilo diferente
+        if (sec.group.includes("MÚLTIPLAS")) {
+            return `
+                <div class="multiples-card">
+                    <div class="card-header">📝 ${sec.group}</div>
+                    <div class="card-content">${sec.body.replace(/\n/g, "<br>")}</div>
+                </div>
+            `;
+        }
+
+        // Parse do corpo que criamos no backend
+        const parts = {};
+        sec.body.split(" | ").forEach(p => {
+            const m = p.match(/\[(.*?)\] (.*)/);
+            if (m) parts[m[1]] = m[2];
+        });
+
+        const isAbortado = parts["STATUS"] === "ABORTADO";
+
         return `
-      <div class="analysis-card">
-        ${groupTitle}
-        ${title}
-        <div style="margin-top:10px">${body}</div>
-      </div>
-    `;
+            <div class="sniper-card ${flagClass}">
+                <div class="card-side-badge">${sec.flag}</div>
+                <div class="card-main">
+                    <div class="match-league">${sec.group} • ${sec.title.split(' — ')[0]}</div>
+                    <div class="match-time">🕒 Kickoff: ${sec.title.split(' — ')[1] || '--:--'}</div>
+                    
+                    ${isAbortado ? `
+                        <div class="status-abort">❌ ENTRADA ABORTADA</div>
+                        <div class="rationale-grid">
+                            <div class="rat-item"><strong>Estatística:</strong> ${parts["ESTATISTICA"]}</div>
+                            <div class="rat-item"><strong>Tático:</strong> ${parts["TACTICO"]}</div>
+                        </div>
+                    ` : `
+                        <div class="status-success">🎯 ${parts["OPORTUNIDADE"]}</div>
+                        <div class="target-info">Alvo: ${parts["TARGET"]}</div>
+                        <div class="rationale-grid">
+                            <div class="rat-item"><strong>Momento:</strong> ${parts["MOMENTO"]}</div>
+                            <div class="rat-item"><strong>Contexto:</strong> ${parts["CONTEXTO"]}</div>
+                        </div>
+                        <div class="confidence-bar-container">
+                            <div class="confidence-label">Confiança: ${parts["CONFIDENCA"]}</div>
+                            <div class="confidence-bar"><div style="width: ${parts["CONFIDENCA"]}"></div></div>
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
     }).join("");
 }
 

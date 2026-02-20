@@ -296,7 +296,7 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
 
   const formatCardBody = (rec, d, g, home, away, marketType) => {
     if (rec === "NO_BET") {
-      return `❌ **ENTRADA ABORTADA**\n* **Motivo:** Filtro Sniper barrou. Risco alto ou falta de dados fortes.\n* **Check-up:**\n  * *Estatístico:* ${d?.rationale || "—"}\n  * *Tático:* ${g?.rationale || "—"}`;
+      return `[STATUS] ABORTADO | [MOTIVO] Risco alto ou falta de dados fortes. | [ESTATISTICA] ${d?.rationale || "—"} | [TACTICO] ${g?.rationale || "—"}`;
     }
 
     let aposta = rec;
@@ -313,12 +313,8 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
 
     const conf = Math.max(d?.confidence || 0, g?.confidence || 0) || 75;
 
-    return `✅ **Oportunidade:** **${aposta}** (vs ${adv})
-* **Motivo:** Fusão de indicadores aponta valor e probabilidade alta nesta entrada.
-* **Check-up:**
-  * *Momento (xG/Stats):* ${d?.rationale || "Sem dados numéricos precisos."}
-  * *Físico e Desfalques:* ${g?.rationale || "Sem informações de lesões na web."}
-* **Probabilidade:** > ${conf}%`;
+    // Retornamos o texto formatado com "Tags" para o frontend tratar
+    return `[OPORTUNIDADE] ${aposta} | [TARGET] vs ${adv} | [MOMENTO] ${d?.rationale || "Análise baseada em posição de tabela e odds."} | [CONTEXTO] ${g?.rationale || "Análise baseada em notícias e estilo de jogo."} | [CONFIDENCA] ${conf}%`;
   };
 
   for (const fixtureId of new Set([...mapDeep.keys(), ...mapGem.keys()])) {

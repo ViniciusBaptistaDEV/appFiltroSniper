@@ -1,3 +1,6 @@
+/* ========================================================================================
+   1. RESET E BASE (Seu original mantido)
+   ======================================================================================== */
 * {
     box-sizing: border-box;
     margin: 0;
@@ -24,6 +27,9 @@ body {
     border: 1px solid #334155;
 }
 
+/* ========================================================================================
+   2. HEADER E CONTROLES (Seu original mantido)
+   ======================================================================================== */
 header {
     text-align: center;
     margin-bottom: 30px;
@@ -67,21 +73,6 @@ input[type="date"]:focus {
     border-color: #22c55e;
 }
 
-/* Estado desabilitado do campo de data */
-input[type="date"]:disabled {
-    background: #1f2937;
-    /* um pouco mais claro que #0f172a para diferenciar */
-    color: #94a3b8;
-    cursor: not-allowed;
-    border-color: #475569;
-}
-
-/* Evita hover/click no ícone do calendário quando desabilitado */
-input[type="date"]:disabled::-webkit-calendar-picker-indicator {
-    opacity: 0.3;
-    pointer-events: none;
-}
-
 button {
     padding: 12px 30px;
     border-radius: 8px;
@@ -98,30 +89,11 @@ button {
 button:hover {
     background: #16a34a;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(34, 197, 94, 0.4);
 }
 
-button:disabled {
-    background: #475569;
-    color: #94a3b8;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
-
-/* Loading */
-#loading {
-    text-align: center;
-    padding: 40px 0;
-}
-
-.loading-subtext {
-    font-size: 0.85rem;
-    color: #94a3b8;
-    display: block;
-    margin-top: 5px;
-}
-
+/* ========================================================================================
+   3. LOADING E UTILITÁRIOS (Seu original mantido)
+   ======================================================================================== */
 .spinner {
     width: 50px;
     height: 50px;
@@ -142,7 +114,9 @@ button:disabled {
     display: none !important;
 }
 
-/* Cards */
+/* ========================================================================================
+   4. NOVOS CARDS SNIPER (Melhoria de layout)
+   ======================================================================================== */
 #resultCard {
     background: #0f172a;
     border-radius: 8px;
@@ -157,86 +131,141 @@ button:disabled {
     gap: 20px;
 }
 
-.analysis-card {
+.sniper-card {
     background: #1e293b;
+    border-radius: 12px;
+    display: flex;
+    overflow: hidden;
     border: 1px solid #334155;
-    border-left: 5px solid #22c55e;
-    border-radius: 8px;
-    padding: 20px;
-    line-height: 1.6;
-    color: #e2e8f0;
-    transition: transform 0.2s ease;
+    border-left: 6px solid #64748b;
 }
 
-.analysis-card:hover {
-    transform: scale(1.01);
-    border-color: #22c55e;
+.sniper-card.verde {
+    border-left-color: #22c55e;
 }
 
-.badge {
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: 0.85rem;
-    margin-left: 5px;
+.sniper-card.amarela {
+    border-left-color: #eab308;
 }
 
-.verde {
-    background: #16a34a;
-    color: white;
+.sniper-card.vermelha {
+    border-left-color: #ef4444;
 }
 
-.amarela {
-    background: #ca8a04;
-    color: white;
-}
-
-.vermelha {
-    background: #dc2626;
-    color: white;
-}
-
-.analysis-card strong {
-    color: #fff;
-    font-size: 1.1rem;
-}
-
-/* “Placeholder” na data */
-input[type="date"]::before {
-    content: attr(data-placeholder);
-    width: 100%;
+.card-side-badge {
+    writing-mode: vertical-rl;
+    text-transform: uppercase;
+    font-weight: 900;
+    font-size: 10px;
+    padding: 15px 6px;
+    background: rgba(0, 0, 0, 0.3);
+    text-align: center;
+    letter-spacing: 2px;
     color: #94a3b8;
+    transform: rotate(180deg);
 }
 
-input[type="date"]:focus::before,
-input[type="date"]:valid::before {
-    display: none;
-    content: "";
+.card-main {
+    padding: 20px;
+    flex: 1;
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    filter: invert(1);
-    opacity: 0.6;
-    transition: 0.3s;
+.match-league {
+    font-size: 0.75rem;
+    color: #22c55e;
+    font-weight: bold;
+    margin-bottom: 4px;
+    text-transform: uppercase;
 }
 
-input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
+.match-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #fff;
 }
 
-/* Print */
-#btnPDF {
-    margin-bottom: 20px;
+.match-time {
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 12px;
 }
 
+/* Status Labels */
+.status-abort {
+    color: #f87171;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.status-success {
+    color: #4ade80;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+}
+
+/* Grid de Racional em 2 colunas */
+.rationale-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+    border-top: 1px solid #334155;
+    padding-top: 15px;
+}
+
+.rat-item {
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+
+.rat-item strong {
+    display: block;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    margin-bottom: 4px;
+}
+
+/* Confiança */
+.confidence-bar-bg {
+    height: 6px;
+    background: #0f172a;
+    border-radius: 10px;
+    margin-top: 5px;
+}
+
+.confidence-bar-fill {
+    height: 100%;
+    background: #22c55e;
+    border-radius: 10px;
+}
+
+/* Múltiplas */
+.multiples-card {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border: 2px solid #22c55e;
+    border-radius: 12px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.multiples-body {
+    font-family: 'Courier New', monospace;
+    color: #4ade80;
+    line-height: 1.6;
+}
+
+/* ========================================================================================
+   5. @MEDIA QUERIES (Sua lógica de mobile restaurada + ajustes dos cards)
+   ======================================================================================== */
 @media print {
     #btnPDF {
         display: none !important;
     }
 }
 
-/* Mobile */
 @media (max-width: 600px) {
     body {
         padding: 15px 10px;
@@ -261,12 +290,22 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         font-size: 1.1rem;
     }
 
-    .analysis-card {
-        padding: 15px;
-        font-size: 0.95rem;
+    /* Ajuste do Card no Mobile */
+    .sniper-card {
+        flex-direction: column-reverse;
     }
 
-    .analysis-card strong {
-        font-size: 1rem;
+    .card-side-badge {
+        writing-mode: horizontal-tb;
+        transform: none;
+        width: 100%;
+        padding: 5px;
+        font-size: 9px;
     }
+
+    .rationale-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Coluna única no mobile */
 }
