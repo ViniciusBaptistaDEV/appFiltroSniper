@@ -23,38 +23,40 @@ SCHEMA DE SAÍDA (JSON estrito - application/json):
   "date": "YYYY-MM-DD",
   "enriched": [
     {
-      "fixtureId": "string (ESPN ID)",
+      "fixtureId": "string",
       "league": "string",
-      "kickoff": "ISO date-time",
+      "kickoff": "string",
       "homeTeam": {
         "name": "string",
-        "coach": "string|null",
-        "probableLineup": ["Nomes..."]|null,
-        "injuries": ["Nome (status)"]|[],
-        "suspended": ["Nome"]|[],
-        "xG_last5": number|null,
-        "xGA_last5": number|null,
-        "bigChancesFor_last5": number|null,
-        "bigChancesAgainst_last5": number|null,
-        "shotsOnTarget_last5": number|null,
-        "possession_last5": number|null,
-        "cornersFor_last5": number|null,
-        "cornersAgainst_last5": number|null,
-        "attack_wings_level": "alto|medio|baixo|null",
-        "crosses_last5": number|null,
-        "blockedShots_last5": number|null,
-        "style_tags": ["transicao","controle","pressao","bloco_baixo", "..."]
+        "coach": "string",
+        "probableLineup": ["string"],
+        "injuries": ["string"],
+        "suspended": ["string"],
+        "xG_last5": 0,
+        "xGA_last5": 0,
+        "bigChancesFor_last5": 0,
+        "bigChancesAgainst_last5": 0,
+        "shotsOnTarget_last5": 0,
+        "possession_last5": 0,
+        "cornersFor_last5": 0,
+        "cornersAgainst_last5": 0,
+        "attack_wings_level": "alto",
+        "crosses_last5": 0,
+        "blockedShots_last5": 0,
+        "style_tags": ["string"]
       },
-      "awayTeam": { /* mesmas chaves do homeTeam */ },
-      "referee": { "name": "string|null", "foulsPerGame": number|null, "tendency": "rigoroso|permissivo|null" },
-      "h2h_last3": [{"home":"A","away":"B","score":"x-y","date":"YYYY-MM-DD"}]|[],
-      "table_context": { "home_position": number|null, "away_position": number|null, "motivation_note": "string|null" },
-      "home_away_form": { "home_points_last8": number|null, "away_points_last8": number|null },
-      "sources": ["Lista de fontes utilizadas..."],
-      "missing": ["lista de campos que não foram encontrados em nenhuma fonte"]
+      "awayTeam": { /* preencher igual homeTeam */ },
+      "referee": { "name": "string", "foulsPerGame": 0, "tendency": "string" },
+      "h2h_last3": [{"home":"string","away":"string","score":"string","date":"string"}],
+      "table_context": { "home_position": 0, "away_position": 0, "motivation_note": "string" },
+      "home_away_form": { "home_points_last8": 0, "away_points_last8": 0 },
+      "sources": ["string"],
+      "missing": ["string"]
     }
   ]
 }
+
+Se um campo numérico não existir, retorne 0. Se uma string/array não existir, retorne "" ou [] vazio.
 
 SAÍDA:
 Retorne apenas JSON (application/json), sem comentários ou texto fora do JSON.
