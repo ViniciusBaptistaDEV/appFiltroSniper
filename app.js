@@ -144,8 +144,8 @@ window.onload = () => {
     const hoje = new Date().toISOString().split('T')[0];
     const el = document.getElementById('dateInput');
     el.value = hoje;
-    el.setAttribute("data-placeholder", "Escolha a data da rodada");
-};
+    el.setAttribute("data-placeholder");
+}; //, "Escolha a data da rodada"
 
 /** Copiar texto visível dos cards */
 function copiarTexto() {

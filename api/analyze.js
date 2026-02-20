@@ -73,7 +73,8 @@ const MODEL_TACTICS = process.env.GEM_TACTICS_MODEL || "gemini-2.5-pro";
 */
 async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
   const apiKey = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
+  // Alteração 1: Mudando de v1 para v1beta na URL
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
@@ -81,7 +82,8 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
       temperature: 0.2,
       topP: 0.1,
       topK: 32,
-      responseMimeType: "application/json" // força JSON
+      // Alteração 2: Usando snake_case aqui
+      response_mime_type: "application/json" 
     },
     safetySettings: [
       { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
