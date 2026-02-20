@@ -65,20 +65,12 @@ async function setCache(key, value) {
 * Chama o Gemini 2.5 (Flash/Pro) forçando saída em JSON.
 */
 async function callGeminiJSON(promptText, model = "gemini-1.5-flash", useSearch = false) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = cleanEnv('GEMINI_API_KEY');
   
-  // 1. Se usar SEARCH, obrigatoriamente v1beta. Se não, v1 (mais estável).
-  const apiVersion = useSearch ? "v1beta" : "v1";
+  // 1. Em 2026, usamos a v1 para quase tudo. 
+  // O Search Grounding agora é estável na v1.
+  const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
   
-  // 2. Ajuste de nome para evitar o erro 404 na v1beta
-  // Se for 1.5-flash na v1beta, usamos o sufixo -latest
-  let modelName = model;
-  if (useSearch && model === "gemini-1.5-flash") {
-    modelName = "gemini-1.5-flash-latest";
-  }
-
-  const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${apiKey}`;
-
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
