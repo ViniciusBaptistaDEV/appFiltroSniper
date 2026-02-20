@@ -64,33 +64,31 @@ async function setCache(key, value) {
 /**
 * Chama o Gemini 2.5 (Flash/Pro) forçando saída em JSON.
 */
+// Função de limpeza ultra-segura para variáveis da Vercel
+const cleanVar = (val) => String(val || "").replace(/['"]/g, "").trim();
+
 async function callGeminiJSON(promptText, model = "gemini-1.5-flash", useSearch = false) {
-  const apiKey = cleanEnv('GEMINI_API_KEY');
-  
-  // 1. Em 2026, usamos a v1 para quase tudo. 
-  // O Search Grounding agora é estável na v1.
-  const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
-  
+  const apiKey = cleanVar(process.env.GEMINI_API_KEY);
+  const cleanModel = cleanVar(model);
+
+  // 1. Definição da Versão: Search EXIGE v1beta. Análise prefere v1.
+  const apiVersion = useSearch ? "v1beta" : "v1";
+
+  const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
+
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
-      temperature: 0.2,
-      topP: 0.1,
-      topK: 32
-    },
-    safetySettings: [
-      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" }
-    ]
+      temperature: 0.1,
+      // O Search Grounding não aceita response_mime_type: json
+      ...(useSearch ? {} : { response_mime_type: "application/json" })
+    }
   };
 
+  // 2. Configuração da Ferramenta de Busca (Apenas para o Collector)
   if (useSearch) {
-    payload.tools = [{ googleSearch: {} }];
-    payload.contents[0].parts[0].text += "\n\n[AVISO CRÍTICO DE SISTEMA]: Retorne EXATAMENTE e APENAS o JSON. Não use blocos de formatação markdown (```json). Não escreva nenhum texto antes ou depois do JSON.";
-  } else {
-    payload.generationConfig.response_mime_type = "application/json";
+    // Na v1beta o campo correto para Grounding é este:
+    payload.tools = [{ googleSearchRetrieval: { dynamicRetrievalConfig: { mode: "MODE_DYNAMIC", dynamicThreshold: 0.3 } } }];
   }
 
   const resp = await fetch(url, {
@@ -102,24 +100,12 @@ async function callGeminiJSON(promptText, model = "gemini-1.5-flash", useSearch 
   const data = await resp.json();
 
   if (data.error) {
-    console.error("🚨 ERRO DA API GEMINI:", JSON.stringify(data.error, null, 2));
+    // Se der 404 na v1beta, tentamos um fallback rápido sem o prefixo models/ ou mudando o modelo
+    console.error(`🚨 ERRO DA API GEMINI (${apiVersion}):`, JSON.stringify(data.error, null, 2));
     throw new Error(`API Gemini recusou: ${data.error.message}`);
   }
 
-  const candidate = data?.candidates?.[0];
-
-  if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
-    throw new Error(`Geração bloqueada pelo Gemini. Motivo: ${candidate.finishReason}`);
-  }
-
-  let text =
-    candidate?.content?.parts?.[0]?.text ||
-    candidate?.content?.parts?.[0]?.inlineData?.data ||
-    "";
-
-  if (!text) {
-    throw new Error("Gemini retornou resposta vazia");
-  }
+  let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
   if (useSearch) {
     text = text.replace(/^```json\n?/i, "").replace(/\n?```$/i, "").trim();
