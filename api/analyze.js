@@ -264,12 +264,11 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     return "AMARELA";
   };
 
-  // Nova regra rigorosa: Se qualquer uma disser NO_BET, ou se discordarem, o resultado é NO_BET.
   const fuseDecision = (dA, dB) => {
     const A = String(dA || "NO_BET").toUpperCase();
     const B = String(dB || "NO_BET").toUpperCase();
     if (A === B) return A;
-    return "NO_BET"; // Veto de uma das IAs ou discordância entre elas
+    return "NO_BET";
   };
 
   const fmtTitleWithKickoff = (fix) => {
@@ -287,24 +286,51 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
   };
 
+  // NOVO HELPER: Cria o layout estruturado do Card
+  const formatCardBody = (rec, d, g, home, away, marketType) => {
+    if (rec === "NO_BET") {
+      return `❌ **ENTRADA ABORTADA**\n* **Motivo:** Filtro Sniper barrou. Risco alto ou falta de dados fortes.\n* **Check-up:**\n  * *Estatístico:* ${d?.rationale || "—"}\n  * *Tático:* ${g?.rationale || "—"}`;
+    }
+
+    let aposta = rec;
+    let adv = "Adversário";
+
+    // Formata o texto para o mercado de Vitória
+    if (marketType === "VICTORY") {
+      if (rec === "HOME") { aposta = `${home} Vence`; adv = away; }
+      else if (rec === "AWAY") { aposta = `${away} Vence`; adv = home; }
+      else if (rec === "DOUBLE_CHANCE_HOME") { aposta = `${home} ou Empate`; adv = away; }
+      else if (rec === "DOUBLE_CHANCE_AWAY") { aposta = `${away} ou Empate`; adv = home; }
+    } else {
+      adv = rec.includes("HOME") ? away : home;
+    }
+
+    const conf = Math.max(d?.confidence || 0, g?.confidence || 0) || 75;
+
+    return `✅ **Oportunidade:** **${aposta}** (vs ${adv})
+* **Motivo:** Fusão de indicadores aponta valor e probabilidade alta nesta entrada.
+* **Check-up:**
+  * *Momento (xG/Stats):* ${d?.rationale || "Sem dados numéricos precisos."}
+  * *Físico e Desfalques:* ${g?.rationale || "Sem informações de lesões na web."}
+* **Probabilidade:** > ${conf}%`;
+  };
+
   for (const fixtureId of new Set([...mapDeep.keys(), ...mapGem.keys()])) {
     const d = mapDeep.get(fixtureId)?.markets || {};
     const g = mapGem.get(fixtureId)?.markets || {};
+    const e = byId.get(fixtureId);
+    const hName = e?.homeTeam?.name || "Casa";
+    const aName = e?.awayTeam?.name || "Fora";
 
     // Escanteios
     if (d.corners || g.corners) {
       const rec = fuseDecision(d.corners?.recommendation, g.corners?.recommendation);
       let flag = fuseFlag(d.corners?.flag, g.corners?.flag);
-      if (rec === "NO_BET") flag = "VERMELHA"; // Força alerta visual no veto
+      if (rec === "NO_BET") flag = "VERMELHA";
 
-      const line = d.corners?.line ?? g.corners?.line ?? null;
-      const rationale = `Estatístico: ${d.corners?.rationale || "—"}\nTático: ${g.corners?.rationale || "—"}`;
       corners.push({
-        fixtureId,
-        group: groupsLabel.CORNERS,
-        title: fmtTitleWithKickoff(fixtureId),
-        body: `Recomendação: ${rec}${line ? ` (linha ${line})` : ""}\n${rationale}`,
-        flag
+        fixtureId, group: groupsLabel.CORNERS, title: fmtTitleWithKickoff(fixtureId),
+        body: formatCardBody(rec, d.corners, g.corners, hName, aName, "CORNERS"), flag
       });
     }
 
@@ -314,13 +340,9 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
       let flag = fuseFlag(d.victory?.flag, g.victory?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
 
-      const rationale = `Estatístico: ${d.victory?.rationale || "—"}\nTático: ${g.victory?.rationale || "—"}`;
       victories.push({
-        fixtureId,
-        group: groupsLabel.VICTORY,
-        title: fmtTitleWithKickoff(fixtureId),
-        body: `Recomendação: ${rec}\n${rationale}`,
-        flag
+        fixtureId, group: groupsLabel.VICTORY, title: fmtTitleWithKickoff(fixtureId),
+        body: formatCardBody(rec, d.victory, g.victory, hName, aName, "VICTORY"), flag
       });
     }
 
@@ -330,13 +352,9 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
       let flag = fuseFlag(d.goals?.flag, g.goals?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
 
-      const rationale = `Estatístico: ${d.goals?.rationale || "—"}\nTático: ${g.goals?.rationale || "—"}`;
       goals.push({
-        fixtureId,
-        group: groupsLabel.GOALS,
-        title: fmtTitleWithKickoff(fixtureId),
-        body: `Recomendação: ${rec}\n${rationale}`,
-        flag
+        fixtureId, group: groupsLabel.GOALS, title: fmtTitleWithKickoff(fixtureId),
+        body: formatCardBody(rec, d.goals, g.goals, hName, aName, "GOALS"), flag
       });
     }
 
@@ -346,13 +364,9 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
       let flag = fuseFlag(d.btts?.flag, g.btts?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
 
-      const rationale = `Estatístico: ${d.btts?.rationale || "—"}\nTático: ${g.btts?.rationale || "—"}`;
       btts.push({
-        fixtureId,
-        group: groupsLabel.BTTS,
-        title: fmtTitleWithKickoff(fixtureId),
-        body: `Recomendação: ${rec}\n${rationale}`,
-        flag
+        fixtureId, group: groupsLabel.BTTS, title: fmtTitleWithKickoff(fixtureId),
+        body: formatCardBody(rec, d.btts, g.btts, hName, aName, "BTTS"), flag
       });
     }
   }
@@ -381,7 +395,6 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
   linhas.push("3️⃣ MÚLTIPLA DE SEGURANÇA");
   if (multis.seguranca.length) { linhas.push(...multis.seguranca); } else { linhas.push("• (Sem entradas elegíveis)"); }
 
-  // Corrige a flag das múltiplas para VERMELHA se não houver NENHUMA entrada elegível
   const hasAnyMulti = multis.elite.length > 0 || multis.volume.length > 0 || multis.seguranca.length > 0;
 
   sections.push({
@@ -391,8 +404,14 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     flag: hasAnyMulti ? "AMARELA" : "VERMELHA"
   });
 
+  const formatFlagEmoji = (flag) => {
+    if (flag === "VERDE") return "🟢 VERDE";
+    if (flag === "AMARELA") return "🟡 AMARELA";
+    return "🔴 VERMELHA";
+  };
+
   const resultado = sections.map(s =>
-    `🎯 ${s.group}\n**${s.title}**\n${s.body}\n🧪 FLAG: ${s.flag}\n`
+    `🎯 ${s.group}\n**${s.title}**\n${s.body}\n🧪 **FLAG:** [${formatFlagEmoji(s.flag)}]\n`
   ).join("\n");
 
   return { sections, resultado };
