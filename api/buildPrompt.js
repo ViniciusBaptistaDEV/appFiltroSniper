@@ -62,22 +62,24 @@ SAÍDA:
 Retorne apenas JSON (application/json), sem comentários ou texto fora do JSON.
 `;
 }
+
 export function montarPromptAnaliseDeepSeek(date, enrichedJson) {
   return `
 ANALISADOR ESTATÍSTICO – DEEPSEEK (DATA: ${date})
 
 REGRAS DE ANÁLISE (FLEXIBILIDADE DE DADOS):
-1. ATENÇÃO: É normal que campos de estatísticas avançadas (xG, posse de bola, cantos) cheguem zerados ou nulos. 
-2. NÃO ABORTE a análise (NO_BET) apenas por falta de números exatos. 
-3. Baseie sua análise matemática no momento do time, ausências, posição na tabela e qualquer dado qualitativo fornecido. 
-4. Só recomende "NO_BET" por falta de dados se as equipes forem 100% desconhecidas e não houver NENHUM contexto sobre elas no JSON.
+1. ATENÇÃO: É normal que campos de estatísticas avançadas (xG, posse de bola, cantos) gerados pela web cheguem zerados ou nulos. 
+2. NOVO E CRÍTICO: Você notará um nó chamado "footballDataStats" em alguns jogos. Ele contém DADOS OFICIAIS de APIs esportivas (odds, status, estatísticas puras). DÊ PRIORIDADE MÁXIMA a esses números para embasar suas decisões matemáticas e de probabilidade.
+3. NÃO ABORTE a análise (NO_BET) apenas por falta de números da busca web. Use as odds e os dados do "footballDataStats" para suprir essa falta.
+4. Baseie sua análise matemática no momento do time, ausências, posição na tabela, odds de mercado e qualquer dado qualitativo fornecido. 
+5. Só recomende "NO_BET" por falta de dados se as equipes forem 100% desconhecidas, não houver NENHUM contexto sobre elas E o "footballDataStats" estiver ausente.
 
 REGRA DE COMPENSAÇÃO (O FILTRO SNIPER):
-Se os dados estatísticos precisos (xG, escanteios, chutes) estiverem ausentes ou zerados, você SÓ PODE recomendar uma aposta se encontrar pelo menos DOIS destes fatores de alto impacto no contexto:
+Se os dados estatísticos precisos estiverem ausentes ou zerados, você SÓ PODE recomendar uma aposta se encontrar pelo menos DOIS destes fatores de alto impacto no contexto ou nos dados oficiais:
 1. Lesões ou ausências críticas de jogadores chave confirmadas.
-2. Disparidade enorme e clara na tabela (ex: 1º lutando pelo título vs 18º rebaixado).
+2. Disparidade enorme e clara na tabela (ex: 1º lutando pelo título vs 18º rebaixado) validada por Odds muito desiguais no mercado.
 3. Fatores extra-campo muito fortes (crise, demissão de técnico recente).
-Se não houver números exatos E o contexto for fraco/morno, o rigor prevalece: retorne "NO_BET".
+Se não houver números exatos, sem apoio de odds E o contexto for fraco/morno, o rigor prevalece: retorne "NO_BET".
 
 Você receberá um JSON com dados enriquecidos dos jogos. Analise APENAS esse JSON.
 NUNCA invente, NUNCA complemente números ausentes.
@@ -112,13 +114,14 @@ ANALISADOR TÁTICO – GEMINI (DATA: ${date})
 
 REGRAS DE ANÁLISE TÁTICA (FLEXIBILIDADE OBRIGATÓRIA):
 1. O coletor usa web search, então é NORMAL que dados estatísticos específicos (xG, posse, médias de escanteios) estejam nulos ou zerados.
-2. PROIBIDO abortar (NO_BET) apenas por falta de números. Você é o analista TÁTICO, não o matemático.
-3. Se os números não existirem, baseie sua decisão de apostar no contexto: lesões, motivação (luta contra rebaixamento), posição na tabela, mando de campo e notícias recentes.
-4. Se o modelo estatístico sugerir uma aposta (ex: HOME) e você achar viável pelo contexto, ACOMPANHE a aposta.
-5. Só use "NO_BET" se a partida for entre times completamente obscuros e não houver literalmente NENHUMA informação sobre o contexto ou momento deles.
+2. NOVO E CRÍTICO: Você notará um nó "footballDataStats" em alguns jogos. Ele contém dados oficiais de mercado (como as "odds"). Use as odds para entender a EXPECTATIVA DO MERCADO. O mercado aponta um super favorito? Cruze isso com a sua análise de lesões e clima de vestiário. Será que o mercado está cego para uma crise tática?
+3. PROIBIDO abortar (NO_BET) apenas por falta de números. Você é o analista TÁTICO, não o matemático.
+4. Se os números não existirem, baseie sua decisão de apostar no contexto: lesões, motivação (luta contra rebaixamento), posição na tabela, mando de campo e notícias recentes.
+5. Se o modelo estatístico (espelhado nas odds do mercado) sugerir favoritismo e você achar viável pelo contexto, ACOMPANHE a aposta.
+6. Só use "NO_BET" se a partida for entre times completamente obscuros e não houver literalmente NENHUMA informação sobre o contexto, momento ou odds.
 
 REGRA DE COMPENSAÇÃO (O FILTRO SNIPER):
-Se os dados estatísticos precisos (xG, escanteios, chutes) estiverem ausentes ou zerados, você SÓ PODE recomendar uma aposta se encontrar pelo menos DOIS destes fatores de alto impacto no contexto:
+Se os dados estatísticos precisos estiverem ausentes, você SÓ PODE recomendar uma aposta se encontrar pelo menos DOIS destes fatores de alto impacto no contexto:
 1. Lesões ou ausências críticas de jogadores chave confirmadas.
 2. Disparidade enorme e clara na tabela (ex: 1º lutando pelo título vs 18º rebaixado).
 3. Fatores extra-campo muito fortes (crise, demissão de técnico recente).
@@ -148,6 +151,4 @@ JSON DE SAÍDA (OBRIGATÓRIO) – MESMO SCHEMA DO DEEPSEEK:
 }
 Retorne apenas JSON.
 `;
-
 }
-

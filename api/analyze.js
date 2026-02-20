@@ -1,7 +1,7 @@
-// Pipeline: ESPN (grade) -> Gemini (coleta) -> DeepSeek (análise estatística) -> Gemini (análise tática)
+// Pipeline: ESPN (grade) -> Gemini (coleta) + Football-Data -> DeepSeek (análise estatística) -> Gemini (análise tática)
 // -> Fusão determinística -> Saída para o front.
 // Implementa cache com TTL de 10 minutos (idempotência em desktop/mobile).
-// IMPORTANTE: defina GEMINI_API_KEY e OPENROUTER_API_KEY em Vercel.
+// IMPORTANTE: defina GEMINI_API_KEY, OPENROUTER_API_KEY e FOOTBALL_DATA_API_KEY em Vercel.
 
 import { buscarJogos } from "./football.js";
 import {
@@ -11,7 +11,7 @@ import {
 } from "./buildPrompt.js";
 
 /* ========================================================================================
-*                                      CACHE (TTL 10m)
+* CACHE (TTL 10m)
 * ====================================================================================== */
 
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
@@ -34,12 +34,11 @@ function getCache(map, key) {
 }
 
 /* ========================================================================================
-*                             HELPERS HTTP (OpenRouter / Gemini)
+* HELPERS HTTP (OpenRouter / Gemini / Football-Data)
 * ====================================================================================== */
 
 /**
 * Chama um modelo via OpenRouter (DeepSeek por padrão) e retorna o texto.
-* jsonMode: quando true, solicita resposta em JSON (quando o modelo suporta).
 */
 async function callOpenRouter(
   model,
@@ -64,12 +63,11 @@ async function callOpenRouter(
   return text;
 }
 
-// Modelos do Gemini controlados por variável de ambiente (com fallback seguro)
 const MODEL_COLLECTOR = process.env.GEM_COLLECTOR_MODEL || "gemini-2.5-flash";
 const MODEL_TACTICS = process.env.GEM_TACTICS_MODEL || "gemini-2.5-pro";
 
 /**
-* Chama o Gemini 2.5 (Flash/Pro) (Google AI Studio) forçando saída em JSON.
+* Chama o Gemini 2.5 (Flash/Pro) forçando saída em JSON.
 */
 async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch = false) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -81,7 +79,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
       temperature: 0.2,
       topP: 0.1,
       topK: 32
-      // Removemos o response_mime_type daqui para controlar dinamicamente
     },
     safetySettings: [
       { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
@@ -91,14 +88,10 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     ]
   };
 
-  // A MÁGICA ACONTECE AQUI:
   if (useSearch) {
-    // 1. Liga a internet
     payload.tools = [{ googleSearch: {} }];
-    // 2. Como não podemos forçar o JSON nativo, forçamos no texto:
     payload.contents[0].parts[0].text += "\n\n[AVISO CRÍTICO DE SISTEMA]: Retorne EXATAMENTE e APENAS o JSON. Não use blocos de formatação markdown (```json). Não escreva nenhum texto antes ou depois do JSON.";
   } else {
-    // 1. Se NÃO usa internet, ativamos a trava nativa de JSON da API
     payload.generationConfig.response_mime_type = "application/json";
   }
 
@@ -127,11 +120,9 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     "";
 
   if (!text) {
-    console.error("🚨 RESPOSTA SEM TEXTO:", JSON.stringify(data, null, 2));
     throw new Error("Gemini retornou resposta vazia");
   }
 
-  // Limpeza de segurança extra: caso o Gemini teimoso coloque "```json" mesmo a gente pedindo para não colocar
   if (useSearch) {
     text = text.replace(/^```json\n?/i, "").replace(/\n?```$/i, "").trim();
   }
@@ -139,9 +130,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   return text;
 }
 
-/**
-* Parse seguro de texto -> JSON (tenta extrair o maior bloco JSON se a resposta vier com ruído).
-*/
 function safeJsonParseFromText(txt) {
   try {
     return JSON.parse(txt);
@@ -157,20 +145,67 @@ function safeJsonParseFromText(txt) {
   }
 }
 
-/* ========================================================================================
-*                         UTILIDADES DE FORMATAÇÃO (kickoff local BR)
-* ====================================================================================== */
+/**
+* Busca estatísticas na API Football-Data
+*/
+async function fetchFootballDataMatches(date) {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY;
+  if (!apiKey) {
+    console.warn("⚠️ FOOTBALL_DATA_API_KEY não configurada. Pulando API Football-Data.");
+    return { matches: [] };
+  }
+
+  try {
+    const resp = await fetch(`https://api.football-data.org/v4/matches?date=${date}`, {
+      headers: { "X-Auth-Token": apiKey }
+    });
+    if (!resp.ok) {
+      console.warn(`⚠️ Football-Data retornou erro HTTP ${resp.status}`);
+      return { matches: [] };
+    }
+    return await resp.json();
+  } catch (error) {
+    console.error("🚨 Falha ao conectar com Football-Data:", error.message);
+    return { matches: [] };
+  }
+}
 
 /**
-* Converte o kickoff ISO do fixture para "HH:MM" no fuso America/Sao_Paulo (24h).
-* Retorna null se não houver kickoff válido.
+* Cruza os dados da ESPN com o Football-Data baseado nos nomes dos times (Sanitizados)
 */
+function matchFootballData(espnGame, fdMatches) {
+  if (!fdMatches || !Array.isArray(fdMatches) || fdMatches.length === 0) return null;
+
+  const clean = (name) => {
+    if (!name) return "";
+    return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") // tira acentos
+      .replace(/fc|clube|club|de|regatas|atletico|athletico|united|city|fr/g, '')
+      .replace(/[^a-z0-9]/g, ''); // apenas alfanumérico
+  };
+
+  const eHome = clean(espnGame.homeTeam);
+  const eAway = clean(espnGame.awayTeam);
+
+  return fdMatches.find(fd => {
+    const fHome = clean(fd.homeTeam?.name || fd.homeTeam?.shortName);
+    const fAway = clean(fd.awayTeam?.name || fd.awayTeam?.shortName);
+
+    const isHomeMatch = (eHome.includes(fHome) || fHome.includes(eHome)) && eHome.length > 2;
+    const isAwayMatch = (eAway.includes(fAway) || fAway.includes(eAway)) && eAway.length > 2;
+
+    return isHomeMatch && isAwayMatch;
+  });
+}
+
+/* ========================================================================================
+* UTILIDADES DE FORMATAÇÃO (kickoff local BR)
+* ====================================================================================== */
+
 function kickoffTimeLocalBR(iso) {
   if (!iso) return null;
   const date = new Date(iso);
   if (isNaN(date.getTime())) return null;
   try {
-    // pt-BR, 24h, sem segundos, fuso fixo de São Paulo
     return date.toLocaleTimeString("pt-BR", {
       timeZone: "America/Sao_Paulo",
       hour: "2-digit",
@@ -178,7 +213,6 @@ function kickoffTimeLocalBR(iso) {
       hour12: false
     });
   } catch {
-    // Fallback genérico
     const hh = String(date.getHours()).padStart(2, "0");
     const mm = String(date.getMinutes()).padStart(2, "0");
     return `${hh}:${mm}`;
@@ -186,15 +220,9 @@ function kickoffTimeLocalBR(iso) {
 }
 
 /* ========================================================================================
-*                                  FUSÃO DETERMINÍSTICA
+* FUSÃO DETERMINÍSTICA
 * ====================================================================================== */
 
-/**
-* Constrói listas de múltiplas a partir das sections já fundidas (somente flags VERDE).
-* - Elite (Vitórias): somente RADAR DE VITÓRIAS, flag VERDE
-* - Volume (Escanteios): somente RADAR DE ESCANTEIOS, flag VERDE
-* - Segurança: qualquer recomendação VERDE (padrão conservador)
-*/
 function buildMultiplesFromSections(sections) {
   const isGreen = (s) => String(s.flag || "").toUpperCase().includes("VERDE");
   const isGroup = (s, name) => (s.group || "").toUpperCase().includes(name.toUpperCase());
@@ -208,7 +236,6 @@ function buildMultiplesFromSections(sections) {
     isGroup(s, "AMBAS MARCAM")
   ));
 
-  // Título + primeira linha de recomendação
   const short = (s) => {
     const recLine = (s.body || "").split("\n").find(l => /Recomendação:/i.test(l)) || "";
     return `• ${s.title} — ${recLine.replace(/Recomendação:\s*/i, "")}`.trim();
@@ -221,28 +248,13 @@ function buildMultiplesFromSections(sections) {
   };
 }
 
-/**
-* Funde as saídas do DeepSeek (estatística) e do Gemini (tática) por fixture, consolidando mercados e flags.
-* - Não deixa as IAs “conversarem”; apenas realiza uma junção regrada.
-* - Ordena internamente cada GRUPO por horário (kickoff) ascendente.
-* - Ao final, ORDENA os grupos pela sequência pedida:
-*   1) 🏆 RADAR DE VITÓRIAS
-*   2) 💎 RADAR DE ESCANTEIOS
-*   3) ⚽ MERCADO DE GOLS
-*   4) ⚽ AMBAS MARCAM
-*   5) 📝 MÚLTIPLAS (acrescentado por último)
-* - NOVO: título inclui " — HH:MM" (kickoff local BR).
-*/
 function fuseAnalyses(deepObj, gemObj, enriched) {
-  // Mapa de fixture -> dados enriquecidos (para obter kickoff, nomes etc.)
   const byId = new Map();
   for (const g of (enriched?.enriched || [])) byId.set(g.fixtureId, g);
 
-  // Índices por fixtureId
   const mapDeep = new Map((deepObj?.games || []).map(g => [g.fixtureId, g]));
   const mapGem = new Map((gemObj?.games || []).map(g => [g.fixtureId, g]));
 
-  // Coletores por GRUPO
   const victories = [];
   const corners = [];
   const goals = [];
@@ -255,7 +267,6 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     BTTS: "AMBAS MARCAM"
   };
 
-  // --- Helpers de fusão e formatação ---
   const fuseFlag = (a, b) => {
     const A = (a || "RED").toUpperCase();
     const B = (b || "RED").toUpperCase();
@@ -286,7 +297,6 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
   };
 
-  // NOVO HELPER: Cria o layout estruturado do Card
   const formatCardBody = (rec, d, g, home, away, marketType) => {
     if (rec === "NO_BET") {
       return `❌ **ENTRADA ABORTADA**\n* **Motivo:** Filtro Sniper barrou. Risco alto ou falta de dados fortes.\n* **Check-up:**\n  * *Estatístico:* ${d?.rationale || "—"}\n  * *Tático:* ${g?.rationale || "—"}`;
@@ -295,7 +305,6 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     let aposta = rec;
     let adv = "Adversário";
 
-    // Formata o texto para o mercado de Vitória
     if (marketType === "VICTORY") {
       if (rec === "HOME") { aposta = `${home} Vence`; adv = away; }
       else if (rec === "AWAY") { aposta = `${away} Vence`; adv = home; }
@@ -322,48 +331,40 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     const hName = e?.homeTeam?.name || "Casa";
     const aName = e?.awayTeam?.name || "Fora";
 
-    // Escanteios
     if (d.corners || g.corners) {
       const rec = fuseDecision(d.corners?.recommendation, g.corners?.recommendation);
       let flag = fuseFlag(d.corners?.flag, g.corners?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
-
       corners.push({
         fixtureId, group: groupsLabel.CORNERS, title: fmtTitleWithKickoff(fixtureId),
         body: formatCardBody(rec, d.corners, g.corners, hName, aName, "CORNERS"), flag
       });
     }
 
-    // Vitórias
     if (d.victory || g.victory) {
       const rec = fuseDecision(d.victory?.recommendation, g.victory?.recommendation);
       let flag = fuseFlag(d.victory?.flag, g.victory?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
-
       victories.push({
         fixtureId, group: groupsLabel.VICTORY, title: fmtTitleWithKickoff(fixtureId),
         body: formatCardBody(rec, d.victory, g.victory, hName, aName, "VICTORY"), flag
       });
     }
 
-    // Gols
     if (d.goals || g.goals) {
       const rec = fuseDecision(d.goals?.recommendation, g.goals?.recommendation);
       let flag = fuseFlag(d.goals?.flag, g.goals?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
-
       goals.push({
         fixtureId, group: groupsLabel.GOALS, title: fmtTitleWithKickoff(fixtureId),
         body: formatCardBody(rec, d.goals, g.goals, hName, aName, "GOALS"), flag
       });
     }
 
-    // BTTS (Ambas Marcam)
     if (d.btts || g.btts) {
       const rec = fuseDecision(d.btts?.recommendation, g.btts?.recommendation);
       let flag = fuseFlag(d.btts?.flag, g.btts?.flag);
       if (rec === "NO_BET") flag = "VERMELHA";
-
       btts.push({
         fixtureId, group: groupsLabel.BTTS, title: fmtTitleWithKickoff(fixtureId),
         body: formatCardBody(rec, d.btts, g.btts, hName, aName, "BTTS"), flag
@@ -371,7 +372,6 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     }
   }
 
-  // === ORDENAR CADA GRUPO POR KICKOFF (ascendente) ===
   const sortByKickoff = (arr) => arr.sort((A, B) => kickoffTsFor(A.fixtureId) - kickoffTsFor(B.fixtureId));
 
   sortByKickoff(victories);
@@ -381,7 +381,6 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
 
   let sections = [...victories, ...corners, ...goals, ...btts];
 
-  // --- Montagem das MÚLTIPLAS ---
   const multis = buildMultiplesFromSections(sections);
   const linhas = [];
   linhas.push("Apenas jogos com 🟢 FLAG VERDE podem ser incluídos.");
@@ -418,7 +417,7 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
 }
 
 /* ========================================================================================
-*                                  HANDLER PRINCIPAL
+* HANDLER PRINCIPAL
 * ====================================================================================== */
 
 export default async function handler(req, res) {
@@ -448,29 +447,46 @@ export default async function handler(req, res) {
       });
     }
 
-    // 2) Coleta (Gemini) – enriquecimento (com TTL)
+    // 2) Coleta Paralela (Gemini Notícias + Football-Data Estatísticas)
     let enriched = getCache(CACHE_ENRICHED, date);
     if (!enriched) {
-      // CORREÇÃO: Usando a variável 'grade' correta!
       const promptCollector = montarPromptColetor(date, grade);
-      console.log(`[Gemini][Collector] model=${MODEL_COLLECTOR} | Search=ON`);
+      console.log(`[Gemini][Collector] model=${MODEL_COLLECTOR} | Search=ON | +Football-Data`);
 
-      // O 'true' aqui liga a internet!
-      const geminiRaw = await callGeminiJSON(promptCollector, MODEL_COLLECTOR, true);
+      // Dispara simultaneamente a pesquisa web e a API Football-Data
+      const [geminiRaw, fdData] = await Promise.all([
+        callGeminiJSON(promptCollector, MODEL_COLLECTOR, true),
+        fetchFootballDataMatches(date)
+      ]);
 
       const parsed = safeJsonParseFromText(geminiRaw);
       if (!parsed || !Array.isArray(parsed.enriched)) {
         throw new Error("Coletor (Gemini) não retornou JSON válido com 'enriched'.");
       }
 
-      // Garantia extra: apenas fixtures presentes na grade ESPN
       const validIds = new Set(grade.map(g => g.fixtureId));
-      parsed.enriched = parsed.enriched.filter(x => validIds.has(x.fixtureId));
-      enriched = parsed;
+      let enrichedArray = parsed.enriched.filter(x => validIds.has(x.fixtureId));
+
+      // Injeta os dados do Football-Data no JSON enriquecido
+      enrichedArray = enrichedArray.map(jogo => {
+        const fdMatch = matchFootballData(jogo, fdData.matches);
+        if (fdMatch) {
+          jogo.footballDataStats = {
+            status: fdMatch.status,
+            score: fdMatch.score,
+            odds: fdMatch.odds || null,
+            // A API pode retornar estatísticas avançadas dependendo do endpoint/plano
+            statistics: fdMatch.statistics || null
+          };
+        }
+        return jogo;
+      });
+
+      enriched = { enriched: enrichedArray };
       setCache(CACHE_ENRICHED, date, enriched);
     }
 
-    // 3) Análise (DeepSeek) – estatística (com TTL)
+    // 3) Análise (DeepSeek) – estatística
     let deepObj = getCache(CACHE_DEEPSEEK, date);
     if (!deepObj) {
       const promptDeep = montarPromptAnaliseDeepSeek(date, enriched);
@@ -489,7 +505,7 @@ export default async function handler(req, res) {
       setCache(CACHE_DEEPSEEK, date, deepObj);
     }
 
-    // 4) Análise (Gemini) – tática/contexto (com TTL)
+    // 4) Análise (Gemini) – tática/contexto
     let gemObj = getCache(CACHE_GEMINI_ANALYSIS, date);
     if (!gemObj) {
       const promptGem = montarPromptAnaliseGemini(date, enriched);
@@ -502,7 +518,7 @@ export default async function handler(req, res) {
       setCache(CACHE_GEMINI_ANALYSIS, date, gemObj);
     }
 
-    // 5) Fusão determinística + MÚLTIPLAS + ORDEM FIXA + ORDENAÇÃO POR KICKOFF + TÍTULO COM HH:MM
+    // 5) Fusão determinística
     let fused = getCache(CACHE_FUSED, date);
     if (!fused) {
       fused = fuseAnalyses(deepObj, gemObj, enriched);
@@ -513,9 +529,9 @@ export default async function handler(req, res) {
       status: "ok",
       date,
       generatedAt: new Date().toISOString(),
-      source: { grade: "ESPN", collector: "Gemini", analyzers: ["DeepSeek", "Gemini"] },
+      source: { grade: "ESPN", collector: "Gemini + Football-Data", analyzers: ["DeepSeek", "Gemini"] },
       sections: fused.sections,
-      resultado: fused.resultado // fallback textual
+      resultado: fused.resultado
     });
   } catch (error) {
     console.error("🚨 ERRO CRÍTICO NO PIPELINE:", error);
