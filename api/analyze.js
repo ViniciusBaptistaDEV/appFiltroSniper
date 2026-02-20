@@ -37,31 +37,6 @@ function getCache(map, key) {
 * HELPERS HTTP (OpenRouter / Gemini / Football-Data)
 * ====================================================================================== */
 
-/**
-* Chama um modelo via OpenRouter (DeepSeek por padrão) e retorna o texto.
-*/
-async function callOpenRouter(
-  model,
-  messages,
-  { temperature = 0.1, top_p = 0.1, seed = 42, max_tokens = 8000, jsonMode = false } = {}
-) {
-  const headers = {
-    Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-    "Content-Type": "application/json"
-  };
-  const body = { model, temperature, top_p, seed, max_tokens, messages };
-  if (jsonMode) body.response_format = { type: "json_object" };
-
-  const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body)
-  });
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error?.message || "OpenRouter error");
-  const text = data?.choices?.[0]?.message?.content || "";
-  return text;
-}
 
 const MODEL_COLLECTOR = process.env.GEM_COLLECTOR_MODEL || "gemini-2.5-flash";
 const MODEL_TACTICS = process.env.GEM_TACTICS_MODEL || "gemini-2.5-pro";
@@ -493,24 +468,32 @@ export default async function handler(req, res) {
       });
 
       enriched = { enriched: enrichedArray };
+      
+      // === COMANDO DE TESTE: VALIDAÇÃO MUNIÇÃO SNIPER ===
+      console.log("===== 🎯 VALIDAÇÃO: MUNIÇÃO SNIPER (API DATA) =====");
+      enrichedArray.forEach(j => {
+          const stats = j.footballDataStats;
+          const status = stats ? "✅ CARREGADA" : "❌ VAZIA (Sem match)";
+          const odds = stats?.odds ? `| Odds: H:${stats.odds.homeWin} E:${stats.odds.draw} V:${stats.odds.awayWin}` : "| Sem Odds";
+          console.log(`- ${j.homeTeam?.name || j.homeTeam}: ${status} ${odds}`);
+      });
+      // ================================================
+
       setCache(CACHE_ENRICHED, date, enriched);
     }
 
-    // 3) Análise (DeepSeek) – estatística
+    // 3) Análise (Gemini Estatístico) – Substituindo DeepSeek (com TTL)
     let deepObj = getCache(CACHE_DEEPSEEK, date);
     if (!deepObj) {
       const promptDeep = montarPromptAnaliseDeepSeek(date, enriched);
-      const deepText = await callOpenRouter(
-        "deepseek/deepseek-chat",
-        [
-          { role: "system", content: "Você é um analista estatístico frio, segue regras matemáticas e retorna apenas JSON." },
-          { role: "user", content: promptDeep }
-        ],
-        { jsonMode: true, max_tokens: 7000 }
-      );
+      console.log(`[Gemini][Statistics] model=${MODEL_COLLECTOR}`);
+      
+      // Usamos o callGeminiJSON que já temos pronto e que é "de graça" no Free Tier
+      const deepText = await callGeminiJSON(promptDeep, MODEL_COLLECTOR);
+      
       deepObj = safeJsonParseFromText(deepText);
       if (!deepObj || !Array.isArray(deepObj.games)) {
-        throw new Error("DeepSeek não retornou JSON válido com 'games'.");
+        throw new Error("Gemini (Estatística) não retornou JSON válido com 'games'.");
       }
       setCache(CACHE_DEEPSEEK, date, deepObj);
     }
