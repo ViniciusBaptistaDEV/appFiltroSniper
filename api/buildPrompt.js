@@ -101,6 +101,12 @@ Retorne apenas JSON.
 export function montarPromptAnaliseGemini(date, enrichedJson) {
   return `
 ANALISADOR TÁTICO – GEMINI (DATA: ${date})
+REGRAS DE ANÁLISE TÁTICA (FLEXIBILIDADE OBRIGATÓRIA):
+1. O coletor usa web search, então é NORMAL que dados estatísticos específicos (xG, posse, médias de escanteios) estejam nulos ou zerados.
+2. PROIBIDO abortar (NO_BET) apenas por falta de números. Você é o analista TÁTICO, não o matemático.
+3. Se os números não existirem, baseie sua decisão de apostar no contexto: lesões, motivação (luta contra rebaixamento), posição na tabela, mando de campo e notícias recentes.
+4. Se o modelo estatístico sugerir uma aposta (ex: HOME) e você achar viável pelo contexto, ACOMPANHE a aposta.
+5. Só use "NO_BET" se a partida for entre times completamente obscuros e não houver literalmente NENHUMA informação sobre o contexto ou momento deles.
 Use APENAS o JSON fornecido. Sem inventar.
 Foque em: escalações prováveis, ausências críticas, estilo (ataque pelos lados, transição), árbitro (ritmo), contexto de tabela e motivação.
 Aplique as mesmas TRAVAS do Filtro Sniper. Saída deve ser JSON com os mesmos campos do DeepSeek, mas com racional tático.
