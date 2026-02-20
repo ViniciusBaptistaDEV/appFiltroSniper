@@ -66,6 +66,11 @@ Retorne apenas JSON (application/json), sem comentários ou texto fora do JSON.
 export function montarPromptAnaliseDeepSeek(date, enrichedJson) {
   return `
 ANALISADOR ESTATÍSTICO – DEEPSEEK (DATA: ${date})
+REGRAS DE ANÁLISE (FLEXIBILIDADE DE DADOS):
+1. ATENÇÃO: É normal que campos de estatísticas avançadas (xG, posse de bola, cantos) cheguem zerados ou nulos. 
+2. NÃO ABORTE a análise (NO_BET) apenas por falta de números exatos. 
+3. Baseie sua análise matemática no momento do time, ausências, posição na tabela e qualquer dado qualitativo fornecido. 
+4. Só recomende "NO_BET" por falta de dados se as equipes forem 100% desconhecidas e não houver NENHUM contexto sobre elas no JSON.
 Você receberá um JSON com dados enriquecidos dos jogos. Analise APENAS esse JSON.
 NUNCA invente, NUNCA complemente números ausentes.
 Aplique as TRAVAS do Filtro Sniper para: Radar de Vitórias, Mercado de Gols (Over/Under), Ambas Marcam (BTTS) e Escanteios.
