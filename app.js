@@ -78,8 +78,8 @@ function renderSectionsAsCards(sections) {
         if (sec.group.includes("MÚLTIPLAS")) {
             return `
                 <div class="multiples-card">
-                    <div class="card-header">📝 ${sec.group}</div>
-                    <div class="card-content">${sec.body.replace(/\n/g, "<br>")}</div>
+                    <div class="match-title" style="margin-bottom:15px">📝 ${sec.group}</div>
+                    <div class="multiples-body">${sec.body.replace(/\n/g, "<br>")}</div>
                 </div>
             `;
         }
@@ -97,7 +97,8 @@ function renderSectionsAsCards(sections) {
             <div class="sniper-card ${flagClass}">
                 <div class="card-side-badge">${sec.flag}</div>
                 <div class="card-main">
-                    <div class="match-league">${sec.group} • ${sec.title.split(' — ')[0]}</div>
+                    <div class="match-league">${sec.group}</div>
+                    <div class="match-title">${sec.title.split(' — ')[0]}</div>
                     <div class="match-time">🕒 Kickoff: ${sec.title.split(' — ')[1] || '--:--'}</div>
                     
                     ${isAbortado ? `
@@ -115,7 +116,7 @@ function renderSectionsAsCards(sections) {
                         </div>
                         <div class="confidence-bar-container">
                             <div class="confidence-label">Confiança: ${parts["CONFIDENCA"]}</div>
-                            <div class="confidence-bar"><div style="width: ${parts["CONFIDENCA"]}"></div></div>
+                            <div class="confidence-bar-bg"><div class="confidence-bar-fill" style="width: ${parts["CONFIDENCA"]}"></div></div>
                         </div>
                     `}
                 </div>
