@@ -168,7 +168,7 @@ async function fetchFootballDataMatches(date) {
 /**
 * Cruza os dados da ESPN com o Football-Data (Versão Sniper Ultra-Agressiva)
 */
-f/**
+/**
  * Matcher de Times (Versão 3.0 - Flexível)
  */
 function matchFootballData(espnGame, fdMatches) {
