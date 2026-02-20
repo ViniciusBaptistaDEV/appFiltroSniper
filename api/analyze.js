@@ -71,8 +71,8 @@ async function callGeminiJSON(promptText, model = "gemini-1.5-flash", useSearch 
   const apiKey = cleanVar(process.env.GEMINI_API_KEY);
   const cleanModel = cleanVar(model);
 
-  // 1. Definição da Versão: Search EXIGE v1beta. Análise prefere v1.
-  const apiVersion = useSearch ? "v1beta" : "v1";
+// LÓGICA SNIPER: 2.5 e Search exigem v1beta. O resto pode usar v1.
+  const apiVersion = (cleanModel.includes("2.5") || useSearch) ? "v1beta" : "v1";
 
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
 
