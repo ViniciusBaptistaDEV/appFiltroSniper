@@ -80,8 +80,8 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     generationConfig: {
       temperature: 0.2,
       topP: 0.1,
-      topK: 32,
-      response_mime_type: "application/json"
+      topK: 32
+      // Removemos o response_mime_type daqui para controlar dinamicamente
     },
     safetySettings: [
       { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
@@ -91,11 +91,15 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     ]
   };
 
-  // LIGA A INTERNET SE O PARÂMETRO FOR TRUE
+  // A MÁGICA ACONTECE AQUI:
   if (useSearch) {
-    payload.tools = [
-      { googleSearch: {} }
-    ];
+    // 1. Liga a internet
+    payload.tools = [{ googleSearch: {} }];
+    // 2. Como não podemos forçar o JSON nativo, forçamos no texto:
+    payload.contents[0].parts[0].text += "\n\n[AVISO CRÍTICO DE SISTEMA]: Retorne EXATAMENTE e APENAS o JSON. Não use blocos de formatação markdown (```json). Não escreva nenhum texto antes ou depois do JSON.";
+  } else {
+    // 1. Se NÃO usa internet, ativamos a trava nativa de JSON da API
+    payload.generationConfig.response_mime_type = "application/json";
   }
 
   const resp = await fetch(url, {
@@ -103,6 +107,7 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
   const data = await resp.json();
 
   if (data.error) {
@@ -116,7 +121,7 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     throw new Error(`Geração bloqueada pelo Gemini. Motivo: ${candidate.finishReason}`);
   }
 
-  const text =
+  let text =
     candidate?.content?.parts?.[0]?.text ||
     candidate?.content?.parts?.[0]?.inlineData?.data ||
     "";
@@ -124,6 +129,11 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   if (!text) {
     console.error("🚨 RESPOSTA SEM TEXTO:", JSON.stringify(data, null, 2));
     throw new Error("Gemini retornou resposta vazia");
+  }
+
+  // Limpeza de segurança extra: caso o Gemini teimoso coloque "```json" mesmo a gente pedindo para não colocar
+  if (useSearch) {
+    text = text.replace(/^```json\n?/i, "").replace(/\n?```$/i, "").trim();
   }
 
   return text;
