@@ -82,7 +82,14 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
       topP: 0.1,
       topK: 32,
       responseMimeType: "application/json" // força JSON
-    }
+    },
+    // Abaixando a guarda dos filtros de segurança para análises esportivas
+    safetySettings: [
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" }
+    ]
   };
 
   const resp = await fetch(url, {
@@ -90,12 +97,30 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
   const data = await resp.json();
-  const text =
-    data?.candidates?.[0]?.content?.parts?.[0]?.text ||
-    data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data ||
-    "";
-  if (!text) throw new Error("Gemini retornou resposta vazia");
+
+  // 1. Checa se a API do Google retornou um erro real (ex: limite de cota)
+  if (data.error) {
+    throw new Error(`API Gemini recusou: ${data.error.message}`);
+  }
+
+  const candidate = data?.candidates?.[0];
+
+  // 2. Checa se o Gemini barrou sua análise por segurança
+  if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+    throw new Error(`Geração bloqueada pelo Gemini. Motivo: ${candidate.finishReason}`);
+  }
+
+  // 3. Extrai o texto com segurança
+  const text = candidate?.content?.parts?.[0]?.text || candidate?.content?.parts?.[0]?.inlineData?.data || "";
+
+  if (!text) {
+    // Se ainda assim vier vazio, loga no console da Vercel para você conseguir debugar a causa
+    console.error("🚨 RESPOSTA BRUTA BIZARRA DO GEMINI:", JSON.stringify(data, null, 2));
+    throw new Error("Gemini retornou objeto sem texto válido.");
+  }
+
   return text;
 }
 
