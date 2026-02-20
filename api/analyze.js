@@ -11,26 +11,42 @@ import {
 } from "./buildPrompt.js";
 
 /* ========================================================================================
-* CACHE (TTL 10m)
+* CACHE GLOBAL (REDIS UPSTASH) - TTL 10m
 * ====================================================================================== */
 
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS) || 600; // Default: 600s (10 min)
 
-const CACHE_GRADE = new Map();           // date -> { ts, value }
-const CACHE_ENRICHED = new Map();        // date -> { ts, value }
-const CACHE_DEEPSEEK = new Map();        // date -> { ts, value }
-const CACHE_GEMINI_ANALYSIS = new Map(); // date -> { ts, value }
-const CACHE_FUSED = new Map();           // date -> { ts, value }
+async function getCache(key) {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
+  try {
+    const res = await fetch(`${UPSTASH_URL}/get/${key}`, {
+      headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }
+    });
+    const data = await res.json();
+    if (!data.result) return null;
+    return JSON.parse(data.result);
+  } catch (err) {
+    console.error("Redis GET error:", err);
+    return null;
+  }
+}
 
-function isFresh(entry) {
-  return entry && (Date.now() - entry.ts) < CACHE_TTL_MS;
-}
-function setCache(map, key, value) {
-  map.set(key, { ts: Date.now(), value });
-}
-function getCache(map, key) {
-  const entry = map.get(key);
-  return isFresh(entry) ? entry.value : null;
+async function setCache(key, value) {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return;
+  try {
+    await fetch(UPSTASH_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${UPSTASH_TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(["SET", key, JSON.stringify(value), "EX", CACHE_TTL])
+    });
+  } catch (err) {
+    console.error("Redis SET error:", err);
+  }
 }
 
 /* ========================================================================================
@@ -425,10 +441,10 @@ export default async function handler(req, res) {
 
   try {
     // 1) ESPN grade (com TTL)
-    let grade = getCache(CACHE_GRADE, date);
+    let grade = await getCache(`GRADE:${date}`);
     if (!grade) {
       grade = await buscarJogos(date, { limit });
-      setCache(CACHE_GRADE, date, grade);
+      await setCache(`GRADE:${date}`, grade);
     }
     if (!Array.isArray(grade) || grade.length === 0) {
       return res.status(200).json({
@@ -441,7 +457,7 @@ export default async function handler(req, res) {
     }
 
     // 2) Coleta Paralela (Gemini Notícias + Football-Data Estatísticas)
-    let enriched = getCache(CACHE_ENRICHED, date);
+    let enriched = await getCache(`ENRICHED:${date}`);
     if (!enriched) {
       const promptCollector = montarPromptColetor(date, grade);
       console.log(`[Gemini][Collector] model=${MODEL_COLLECTOR} | Search=ON | +Football-Data`);
@@ -493,11 +509,11 @@ export default async function handler(req, res) {
       });
       // ================================================
 
-      setCache(CACHE_ENRICHED, date, enriched);
+      await setCache(`ENRICHED:${date}`, enriched);
     }
 
     // 3) Análise (Gemini Estatístico)
-    let deepObj = getCache(CACHE_DEEPSEEK, date);
+    let deepObj = await getCache(`DEEPSEEK:${date}`);
     if (!deepObj) {
       const promptDeep = montarPromptAnaliseDeepSeek(date, enriched);
       console.log(`[Gemini][Statistics] model=${MODEL_COLLECTOR}`);
@@ -512,11 +528,11 @@ export default async function handler(req, res) {
         console.warn("⚠️ Fallback: Gemini falhou no JSON, gerando estrutura vazia.");
         deepObj = { games: grade.map(g => ({ fixtureId: g.fixtureId, markets: {}, overallFlag: "RED" })) };
       }
-      setCache(CACHE_DEEPSEEK, date, deepObj);
+      await setCache(`DEEPSEEK:${date}`, deepObj);
     }
 
     // 4) Análise (Gemini) – tática/contexto
-    let gemObj = getCache(CACHE_GEMINI_ANALYSIS, date);
+    let gemObj = await getCache(`GEMINI_ANALYSIS:${date}`);
     if (!gemObj) {
       const promptGem = montarPromptAnaliseGemini(date, enriched);
       console.log(`[Gemini][Tactics]   model=${MODEL_TACTICS}`);
@@ -525,14 +541,14 @@ export default async function handler(req, res) {
       if (!gemObj || !Array.isArray(gemObj.games)) {
         throw new Error("Gemini (análise) não retornou JSON válido com 'games'.");
       }
-      setCache(CACHE_GEMINI_ANALYSIS, date, gemObj);
+      await setCache(`GEMINI_ANALYSIS:${date}`, gemObj);
     }
 
     // 5) Fusão determinística
-    let fused = getCache(CACHE_FUSED, date);
+    let fused = await getCache(`FUSED:${date}`);
     if (!fused) {
       fused = fuseAnalyses(deepObj, gemObj, enriched);
-      setCache(CACHE_FUSED, date, fused);
+      await setCache(`FUSED:${date}`, fused);
     }
 
     return res.status(200).json({
