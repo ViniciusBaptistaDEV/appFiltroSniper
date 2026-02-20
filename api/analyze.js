@@ -422,16 +422,22 @@ export default async function handler(req, res) {
     // 2) Coleta (Gemini) – enriquecimento (com TTL)
     let enriched = getCache(CACHE_ENRICHED, date);
     if (!enriched) {
-      const promptCol = montarPromptColetor(date, jogosESPN);
+      // CORREÇÃO: Usando a variável 'grade' correta!
+      const promptCollector = montarPromptColetor(date, grade);
       console.log(`[Gemini][Collector] model=${MODEL_COLLECTOR} | Search=ON`);
 
-      // O 'true' aqui no final liga a busca na internet para esta chamada!
-      const enrichedText = await callGeminiJSON(promptCol, MODEL_COLLECTOR, true);
+      // O 'true' aqui liga a internet!
+      const geminiRaw = await callGeminiJSON(promptCollector, MODEL_COLLECTOR, true);
 
-      enriched = safeJsonParseFromText(enrichedText);
-      if (!enriched || !Array.isArray(enriched.enriched)) {
-        throw new Error("Gemini (coletor) não retornou JSON válido com 'enriched'.");
+      const parsed = safeJsonParseFromText(geminiRaw);
+      if (!parsed || !Array.isArray(parsed.enriched)) {
+        throw new Error("Coletor (Gemini) não retornou JSON válido com 'enriched'.");
       }
+
+      // Garantia extra: apenas fixtures presentes na grade ESPN
+      const validIds = new Set(grade.map(g => g.fixtureId));
+      parsed.enriched = parsed.enriched.filter(x => validIds.has(x.fixtureId));
+      enriched = parsed;
       setCache(CACHE_ENRICHED, date, enriched);
     }
 
