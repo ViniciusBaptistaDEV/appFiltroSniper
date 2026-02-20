@@ -107,15 +107,16 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
 
 function safeJsonParseFromText(txt) {
   try {
-    return JSON.parse(txt);
-  } catch {
+    // Limpeza radical: remove qualquer coisa antes do primeiro { e depois do último }
     const first = txt.indexOf("{");
     const last = txt.lastIndexOf("}");
     if (first >= 0 && last > first) {
-      try {
-        return JSON.parse(txt.slice(first, last + 1));
-      } catch { }
+      const cleanJson = txt.slice(first, last + 1);
+      return JSON.parse(cleanJson);
     }
+    return JSON.parse(txt);
+  } catch (e) {
+    console.error("🚨 FALHA NO PARSE JSON. Texto recebido:", txt.substring(0, 100) + "...");
     return null;
   }
 }
@@ -146,31 +147,32 @@ async function fetchFootballDataMatches(date) {
 }
 
 /**
-* Cruza os dados da ESPN com o Football-Data baseado nos nomes dos times (Sanitizados)
+* Cruza os dados da ESPN com o Football-Data (Versão Sniper Ultra-Agressiva)
 */
 function matchFootballData(espnGame, fdMatches) {
   if (!fdMatches || !Array.isArray(fdMatches) || fdMatches.length === 0) return null;
 
-  // Proteção: Força o nome a ser String antes de tratar
   const clean = (name) => {
-    if (name === null || name === undefined) return "";
-    return String(name).toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // tira acentos
-      .replace(/fc|clube|club|de|regatas|atletico|athletico|united|city|fr/g, '')
-      .replace(/[^a-z0-9]/g, ''); // apenas alfanumérico
+    if (!name) return "";
+    return String(name)
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+      .replace(/\b(fc|fsv|sd|cf|afc|slb|cp|club|deportiva|clube|esporte|sc|stade|futebol|portugal|fbc|athletic|atletico|athletico|united|city|town|hotspur|f\.\c\.)\b/gi, "") // Remove siglas e termos comuns
+      .replace(/[^a-z0-9]/g, '') // Remove tudo que não é letra ou número (inclusive espaços e pontos)
+      .trim();
   };
 
   const eHome = clean(espnGame.homeTeam);
   const eAway = clean(espnGame.awayTeam);
 
   return fdMatches.find(fd => {
-    // Usamos ?. para evitar erro se homeTeam for nulo
     const fHome = clean(fd.homeTeam?.name || fd.homeTeam?.shortName);
     const fAway = clean(fd.awayTeam?.name || fd.awayTeam?.shortName);
 
-    // Lógica de comparação flexível
-    const isHomeMatch = eHome && fHome && (eHome.includes(fHome) || fHome.includes(eHome));
-    const isAwayMatch = eAway && fAway && (eAway.includes(fAway) || fAway.includes(eAway));
+    // Se o nome limpo de um estiver contido no outro, damos o match
+    // Ex: "mainz" está contido em "1fsvmainz05" -> MATCH!
+    const isHomeMatch = (eHome && fHome) && (fHome.includes(eHome) || eHome.includes(fHome));
+    const isAwayMatch = (eAway && fAway) && (fAway.includes(eAway) || eAway.includes(fAway));
 
     return isHomeMatch && isAwayMatch;
   });
@@ -446,7 +448,7 @@ export default async function handler(req, res) {
       // NOVO: Log para verificar o que o coletor achou antes de filtrar
       console.log("===== 🔍 DADOS BRUTOS DO COLETOR =====");
       parsed.enriched.forEach(j => {
-          console.log(`${j.homeTeam?.name || j.homeTeam} vs ${j.awayTeam?.name || j.awayTeam}: Position H:${j.table_context?.home_position} V:${j.table_context?.away_position}`);
+        console.log(`${j.homeTeam?.name || j.homeTeam} vs ${j.awayTeam?.name || j.awayTeam}: Position H:${j.table_context?.home_position} V:${j.table_context?.away_position}`);
       });
 
       const validIds = new Set(grade.map(g => g.fixtureId));
@@ -468,32 +470,35 @@ export default async function handler(req, res) {
       });
 
       enriched = { enriched: enrichedArray };
-      
+
       // === COMANDO DE TESTE: VALIDAÇÃO MUNIÇÃO SNIPER ===
       console.log("===== 🎯 VALIDAÇÃO: MUNIÇÃO SNIPER (API DATA) =====");
       enrichedArray.forEach(j => {
-          const stats = j.footballDataStats;
-          const status = stats ? "✅ CARREGADA" : "❌ VAZIA (Sem match)";
-          const odds = stats?.odds ? `| Odds: H:${stats.odds.homeWin} E:${stats.odds.draw} V:${stats.odds.awayWin}` : "| Sem Odds";
-          console.log(`- ${j.homeTeam?.name || j.homeTeam}: ${status} ${odds}`);
+        const stats = j.footballDataStats;
+        const status = stats ? "✅ CARREGADA" : "❌ VAZIA (Sem match)";
+        const odds = stats?.odds ? `| Odds: H:${stats.odds.homeWin} E:${stats.odds.draw} V:${stats.odds.awayWin}` : "| Sem Odds";
+        console.log(`- ${j.homeTeam?.name || j.homeTeam}: ${status} ${odds}`);
       });
       // ================================================
 
       setCache(CACHE_ENRICHED, date, enriched);
     }
 
-    // 3) Análise (Gemini Estatístico) – Substituindo DeepSeek (com TTL)
+    // 3) Análise (Gemini Estatístico)
     let deepObj = getCache(CACHE_DEEPSEEK, date);
     if (!deepObj) {
       const promptDeep = montarPromptAnaliseDeepSeek(date, enriched);
       console.log(`[Gemini][Statistics] model=${MODEL_COLLECTOR}`);
-      
-      // Usamos o callGeminiJSON que já temos pronto e que é "de graça" no Free Tier
-      const deepText = await callGeminiJSON(promptDeep, MODEL_COLLECTOR);
-      
+
+      // Forçamos o aviso de JSON no final do prompt aqui também
+      const finalPrompt = promptDeep + "\n\nResponda APENAS o objeto JSON, sem markdown e sem explicações.";
+      const deepText = await callGeminiJSON(finalPrompt, MODEL_COLLECTOR);
+
       deepObj = safeJsonParseFromText(deepText);
       if (!deepObj || !Array.isArray(deepObj.games)) {
-        throw new Error("Gemini (Estatística) não retornou JSON válido com 'games'.");
+        // Se falhar, tentamos um fallback de objeto vazio para não travar o pipeline
+        console.warn("⚠️ Fallback: Gemini falhou no JSON, gerando estrutura vazia.");
+        deepObj = { games: grade.map(g => ({ fixtureId: g.fixtureId, markets: {}, overallFlag: "RED" })) };
       }
       setCache(CACHE_DEEPSEEK, date, deepObj);
     }
