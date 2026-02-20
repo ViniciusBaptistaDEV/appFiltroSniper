@@ -83,7 +83,7 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-pro") {
       topP: 0.1,
       topK: 32,
       // Alteração 2: Usando snake_case aqui
-      response_mime_type: "application/json" 
+      response_mime_type: "application/json"
     },
     safetySettings: [
       { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
@@ -251,11 +251,12 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     return "AMARELA";
   };
 
-  const fuseDecision = (dA, dB, defaultNoBet = "NO_BET") => {
-    if (dA && dB && dA === dB) return dA;
-    if (dA && !dB) return dA;
-    if (dB && !dA) return dB;
-    return defaultNoBet;
+  // Nova regra rigorosa: Se qualquer uma disser NO_BET, ou se discordarem, o resultado é NO_BET.
+  const fuseDecision = (dA, dB) => {
+    const A = String(dA || "NO_BET").toUpperCase();
+    const B = String(dB || "NO_BET").toUpperCase();
+    if (A === B) return A;
+    return "NO_BET"; // Veto de uma das IAs ou discordância entre elas
   };
 
   const fmtTitleWithKickoff = (fix) => {
@@ -264,108 +265,97 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
     const awayName = e?.awayTeam?.name || e?.awayTeam || "Fora";
     const league = e?.league || "Liga";
     const hhmm = kickoffTimeLocalBR(e?.kickoff);
-    // Ex.: "Arsenal vs Chelsea (Premier League) — 13:30"
     return `${homeName} vs ${awayName} (${league})${hhmm ? ` — ${hhmm}` : ""}`;
   };
 
-  // Timestamp do kickoff para ordenar (fallback: MAX_SAFE_INTEGER se não houver)
   const kickoffTsFor = (fix) => {
     const e = byId.get(fix);
     const t = e?.kickoff ? new Date(e.kickoff).getTime() : Number.MAX_SAFE_INTEGER;
     return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
   };
 
-  // Percorre todos os fixtures presentes em qualquer analisador
   for (const fixtureId of new Set([...mapDeep.keys(), ...mapGem.keys()])) {
     const d = mapDeep.get(fixtureId)?.markets || {};
     const g = mapGem.get(fixtureId)?.markets || {};
 
     // Escanteios
     if (d.corners || g.corners) {
-      const rec = fuseDecision(d.corners?.recommendation, g.corners?.recommendation, "NO_BET");
-      const flag = fuseFlag(d.corners?.flag, g.corners?.flag);
+      const rec = fuseDecision(d.corners?.recommendation, g.corners?.recommendation);
+      let flag = fuseFlag(d.corners?.flag, g.corners?.flag);
+      if (rec === "NO_BET") flag = "VERMELHA"; // Força alerta visual no veto
+
       const line = d.corners?.line ?? g.corners?.line ?? null;
       const rationale = `Estatístico: ${d.corners?.rationale || "—"}\nTático: ${g.corners?.rationale || "—"}`;
-      if (rec !== "NO_BET") {
-        corners.push({
-          fixtureId, // ordenação por kickoff
-          group: groupsLabel.CORNERS,
-          title: fmtTitleWithKickoff(fixtureId),
-          body: `Recomendação: ${rec}${line ? ` (linha ${line})` : ""}\n${rationale}`,
-          flag
-        });
-      }
+      corners.push({
+        fixtureId,
+        group: groupsLabel.CORNERS,
+        title: fmtTitleWithKickoff(fixtureId),
+        body: `Recomendação: ${rec}${line ? ` (linha ${line})` : ""}\n${rationale}`,
+        flag
+      });
     }
 
     // Vitórias
     if (d.victory || g.victory) {
-      const rec = fuseDecision(d.victory?.recommendation, g.victory?.recommendation, "NO_BET");
-      const flag = fuseFlag(d.victory?.flag, g.victory?.flag);
+      const rec = fuseDecision(d.victory?.recommendation, g.victory?.recommendation);
+      let flag = fuseFlag(d.victory?.flag, g.victory?.flag);
+      if (rec === "NO_BET") flag = "VERMELHA";
+
       const rationale = `Estatístico: ${d.victory?.rationale || "—"}\nTático: ${g.victory?.rationale || "—"}`;
-      if (rec !== "NO_BET") {
-        victories.push({
-          fixtureId,
-          group: groupsLabel.VICTORY,
-          title: fmtTitleWithKickoff(fixtureId),
-          body: `Recomendação: ${rec}\n${rationale}`,
-          flag
-        });
-      }
+      victories.push({
+        fixtureId,
+        group: groupsLabel.VICTORY,
+        title: fmtTitleWithKickoff(fixtureId),
+        body: `Recomendação: ${rec}\n${rationale}`,
+        flag
+      });
     }
 
     // Gols
     if (d.goals || g.goals) {
-      const rec = fuseDecision(d.goals?.recommendation, g.goals?.recommendation, "NO_BET");
-      const flag = fuseFlag(d.goals?.flag, g.goals?.flag);
+      const rec = fuseDecision(d.goals?.recommendation, g.goals?.recommendation);
+      let flag = fuseFlag(d.goals?.flag, g.goals?.flag);
+      if (rec === "NO_BET") flag = "VERMELHA";
+
       const rationale = `Estatístico: ${d.goals?.rationale || "—"}\nTático: ${g.goals?.rationale || "—"}`;
-      if (rec !== "NO_BET") {
-        goals.push({
-          fixtureId,
-          group: groupsLabel.GOALS,
-          title: fmtTitleWithKickoff(fixtureId),
-          body: `Recomendação: ${rec}\n${rationale}`,
-          flag
-        });
-      }
+      goals.push({
+        fixtureId,
+        group: groupsLabel.GOALS,
+        title: fmtTitleWithKickoff(fixtureId),
+        body: `Recomendação: ${rec}\n${rationale}`,
+        flag
+      });
     }
 
-    // BTTS
+    // BTTS (Ambas Marcam)
     if (d.btts || g.btts) {
-      const rec = fuseDecision(d.btts?.recommendation, g.btts?.recommendation, "NO_BET");
-      const flag = fuseFlag(d.btts?.flag, g.btts?.flag);
+      const rec = fuseDecision(d.btts?.recommendation, g.btts?.recommendation);
+      let flag = fuseFlag(d.btts?.flag, g.btts?.flag);
+      if (rec === "NO_BET") flag = "VERMELHA";
+
       const rationale = `Estatístico: ${d.btts?.rationale || "—"}\nTático: ${g.btts?.rationale || "—"}`;
-      if (rec !== "NO_BET") {
-        btts.push({
-          fixtureId,
-          group: groupsLabel.BTTS,
-          title: fmtTitleWithKickoff(fixtureId),
-          body: `Recomendação: ${rec}\n${rationale}`,
-          flag
-        });
-      }
+      btts.push({
+        fixtureId,
+        group: groupsLabel.BTTS,
+        title: fmtTitleWithKickoff(fixtureId),
+        body: `Recomendação: ${rec}\n${rationale}`,
+        flag
+      });
     }
   }
 
   // === ORDENAR CADA GRUPO POR KICKOFF (ascendente) ===
-  const sortByKickoff = (arr) =>
-    arr.sort((A, B) => kickoffTsFor(A.fixtureId) - kickoffTsFor(B.fixtureId));
+  const sortByKickoff = (arr) => arr.sort((A, B) => kickoffTsFor(A.fixtureId) - kickoffTsFor(B.fixtureId));
 
   sortByKickoff(victories);
   sortByKickoff(corners);
   sortByKickoff(goals);
   sortByKickoff(btts);
 
-  // === ORDEM FIXA DE SAÍDA (como solicitado) ===
-  // 1) 🏆 RADAR DE VITÓRIAS
-  // 2) 💎 RADAR DE ESCANTEIOS
-  // 3) ⚽ MERCADO DE GOLS
-  // 4) ⚽ AMBAS MARCAM
   let sections = [...victories, ...corners, ...goals, ...btts];
 
-  // --- Montagem das MÚLTIPLAS (somente com flags VERDE), e sempre por último ---
+  // --- Montagem das MÚLTIPLAS ---
   const multis = buildMultiplesFromSections(sections);
-
-  // Corpo do card “MÚLTIPLAS” no padrão do front
   const linhas = [];
   linhas.push("Apenas jogos com 🟢 FLAG VERDE podem ser incluídos.");
   linhas.push("");
@@ -378,15 +368,16 @@ function fuseAnalyses(deepObj, gemObj, enriched) {
   linhas.push("3️⃣ MÚLTIPLA DE SEGURANÇA");
   if (multis.seguranca.length) { linhas.push(...multis.seguranca); } else { linhas.push("• (Sem entradas elegíveis)"); }
 
+  // Corrige a flag das múltiplas para VERMELHA se não houver NENHUMA entrada elegível
+  const hasAnyMulti = multis.elite.length > 0 || multis.volume.length > 0 || multis.seguranca.length > 0;
+
   sections.push({
     group: "📝 MÚLTIPLAS",
     title: "Sugestão de montagem de bilhetes (conservador)",
     body: linhas.join("\n"),
-    // Mantemos AMARELA por padrão para desencorajar excesso de risco em múltiplas
-    flag: "AMARELA"
+    flag: hasAnyMulti ? "AMARELA" : "VERMELHA"
   });
 
-  // Fallback textual (para compatibilidade com versões antigas do front)
   const resultado = sections.map(s =>
     `🎯 ${s.group}\n**${s.title}**\n${s.body}\n🧪 FLAG: ${s.flag}\n`
   ).join("\n");
