@@ -176,9 +176,11 @@ async function fetchFootballDataMatches(date) {
 function matchFootballData(espnGame, fdMatches) {
   if (!fdMatches || !Array.isArray(fdMatches) || fdMatches.length === 0) return null;
 
+  // Proteção: Força o nome a ser String antes de tratar
   const clean = (name) => {
-    if (!name) return "";
-    return name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") // tira acentos
+    if (name === null || name === undefined) return "";
+    return String(name).toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // tira acentos
       .replace(/fc|clube|club|de|regatas|atletico|athletico|united|city|fr/g, '')
       .replace(/[^a-z0-9]/g, ''); // apenas alfanumérico
   };
@@ -187,11 +189,13 @@ function matchFootballData(espnGame, fdMatches) {
   const eAway = clean(espnGame.awayTeam);
 
   return fdMatches.find(fd => {
+    // Usamos ?. para evitar erro se homeTeam for nulo
     const fHome = clean(fd.homeTeam?.name || fd.homeTeam?.shortName);
     const fAway = clean(fd.awayTeam?.name || fd.awayTeam?.shortName);
 
-    const isHomeMatch = (eHome.includes(fHome) || fHome.includes(eHome)) && eHome.length > 2;
-    const isAwayMatch = (eAway.includes(fAway) || fAway.includes(eAway)) && eAway.length > 2;
+    // Lógica de comparação flexível
+    const isHomeMatch = eHome && fHome && (eHome.includes(fHome) || fHome.includes(eHome));
+    const isAwayMatch = eAway && fAway && (eAway.includes(fAway) || fAway.includes(eAway));
 
     return isHomeMatch && isAwayMatch;
   });
