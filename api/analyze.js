@@ -468,6 +468,12 @@ export default async function handler(req, res) {
         throw new Error("Coletor (Gemini) não retornou JSON válido com 'enriched'.");
       }
 
+      // NOVO: Log para verificar o que o coletor achou antes de filtrar
+      console.log("===== 🔍 DADOS BRUTOS DO COLETOR =====");
+      parsed.enriched.forEach(j => {
+          console.log(`${j.homeTeam?.name || j.homeTeam} vs ${j.awayTeam?.name || j.awayTeam}: Position H:${j.table_context?.home_position} V:${j.table_context?.away_position}`);
+      });
+
       const validIds = new Set(grade.map(g => g.fixtureId));
       let enrichedArray = parsed.enriched.filter(x => validIds.has(x.fixtureId));
 
