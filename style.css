@@ -168,22 +168,9 @@ button:disabled {
     border-left: 6px solid #64748b;
 }
 
-.sniper-card.verde { border-left-color: #22c55e; }
-.sniper-card.amarela { border-left-color: #eab308; }
-.sniper-card.vermelha { border-left-color: #ef4444; }
-
-.card-side-badge {
-    writing-mode: vertical-rl;
-    text-transform: uppercase;
-    font-weight: 900;
-    font-size: 10px;
-    padding: 15px 6px;
-    background: rgba(0, 0, 0, 0.3);
-    text-align: center;
-    letter-spacing: 2px;
-    color: #94a3b8;
-    transform: rotate(180deg);
-}
+.sniper-card.verde { border-left-color: #22c55e !important; }
+.sniper-card.amarela { border-left-color: #eab308 !important; }
+.sniper-card.vermelha { border-left-color: #ef4444 !important; }
 
 .card-main { padding: 20px; flex: 1; }
 .match-league { font-size: 0.75rem; color: #22c55e; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
@@ -314,6 +301,10 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     input[type="date"], button {
         width: 100%;
         font-size: 1.1rem;
+    }
+
+    input[type="date"] {
+        padding-left: 5px; /* Reduz o padding para evitar espaço excessivo */
     }
 
     /* Ajuste do Card no Mobile */

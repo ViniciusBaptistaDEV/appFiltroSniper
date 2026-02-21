@@ -180,24 +180,31 @@ async function fetchFootballDataMatches(date) {
 * Cruza os dados da ESPN com o Football-Data (Versão Sniper Ultra-Agressiva)
 */
 /**
- * Matcher de Times (Versão 3.0 - Flexível)
+ * Matcher de Times 4.1 (Seguro contra Derbys)
+ * Remove APENAS siglas associativas e acentos, preservando a identidade do time.
  */
 function matchFootballData(espnGame, fdMatches) {
   if (!fdMatches || !Array.isArray(fdMatches)) return null;
 
-  const normalize = (s) => String(s || "")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, ""); // Tira tudo, deixa só letras e números colados
+  // Limpeza cirúrgica: tira acentos e SÓ sufixos inúteis
+  const cleanForMatch = (name) => {
+    return String(name || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Tira acentos (ex: Atlético -> atletico)
+      // Remove APENAS siglas de clubes esportivos
+      .replace(/\b(fc|cf|fk|sc|cd|ud|rc|afc|fbc|fsv|vfl|vfb|1\.|sv)\b/g, "") 
+      .replace(/[^a-z0-9]/g, "") // Remove espaços e traços, juntando tudo
+      .trim();
+  };
 
-  const eH = normalize(espnGame.homeTeam);
-  const eA = normalize(espnGame.awayTeam);
+  const eH = cleanForMatch(espnGame.homeTeam);
+  const eA = cleanForMatch(espnGame.awayTeam);
 
   return fdMatches.find(m => {
-    const fH = normalize(m.homeTeam?.name || m.homeTeam?.shortName);
-    const fA = normalize(m.awayTeam?.name || m.awayTeam?.shortName);
+    const fH = cleanForMatch(m.homeTeam?.name || m.homeTeam?.shortName);
+    const fA = cleanForMatch(m.awayTeam?.name || m.awayTeam?.shortName);
 
-    // Verifica se um nome está contido no outro (ex: "mainz" em "1fsvmainz05")
+    // O nome precisa ter pelo menos 4 letras para evitar falsos positivos com siglas
     const homeMatch = (eH.length > 3 && fH.includes(eH)) || (fH.length > 3 && eH.includes(fH)) || eH === fH;
     const awayMatch = (eA.length > 3 && fA.includes(eA)) || (fA.length > 3 && eA.includes(fA)) || eA === fA;
 

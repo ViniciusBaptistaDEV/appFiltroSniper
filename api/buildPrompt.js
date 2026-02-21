@@ -8,38 +8,30 @@ export function montarPromptColetor(date, jogosESPN) {
   return `
 AGENT DE INTELIGÊNCIA – COLETOR FILTRO SNIPER (DATA: ${dataBR})
 
-SUA MISSÃO:
-Você é um analista de dados. Além das estatísticas habituais, foque intensamente no ESTILO DE JOGO para o mercado de escanteios.
+SUA MISSÃO É CRÍTICA:
+Você recebeu uma lista com ${jogosESPN.length} jogos. 
+Você DEVE processar e retornar uma entrada no JSON para CADA UM desses jogos, sem exceção. 
 
-PRIORIDADE DE BUSCA PARA ESCANTEIOS:
-1. O time ataca pelas alas/pontas?
-2. O time tem como característica muitos cruzamentos na área?
-3. O time tem jogadores que chutam muito de fora da área (gerando chutes bloqueados/desvios)?
-4. O time costuma "abafar" o adversário em casa?
+INSTRUÇÕES DE PESQUISA:
+1. Para cada jogo da lista, busque: notícias de última hora, desfalques (lesionados/suspensos), motivação e estilo tático (especialmente para escanteios).
+2. Se não encontrar dados específicos de um jogo, retorne os campos como "null" ou "dados não encontrados", mas MANTENHA o fixtureId e os nomes dos times no JSON.
+3. Não resuma. Não ignore jogos. Se eu te mandei 30 jogos, eu quero 30 objetos no array "enriched".
 
 JOGOS ESPN (GRADE-MESTRA):
 ${listaJogos}
 
-SCHEMA TÉCNICO OBRIGATÓRIO (JSON):
+FORMATO DE SAÍDA (MANTENHA EXATAMENTE ESTE SCHEMA):
 {
   "enriched": [
     {
       "fixtureId": "string",
-      "homeTeam": {
-        "name": "string",
-        "coach": "string",
-        "probableLineup": ["string"],
-        "injuries": ["string"],
-        "xG_last5": 0,
-        "style_tags": ["ataque pelas alas", "muitos cruzamentos", "chutes de longe", "pressão alta", "retranca"],
-        "table_context": { "position": 0, "motivation": "string" }
-      },
-      "awayTeam": { /* igual homeTeam */ },
+      "homeTeam": { "name": "string", "style_tags": [], "table_context": { "home_position": 0 } },
+      "awayTeam": { "name": "string", "style_tags": [], "table_context": { "away_position": 0 } },
       "noticias_recentes": "string"
     }
   ]
 }
-RETORNE APENAS JSON.
+RETORNE APENAS O JSON.
 `;
 }
 
