@@ -183,6 +183,13 @@ button:disabled {
     background-color: #1e293b; /* Mantém o background padrão */
 }
 
+/* Garante que o texto da flag fique branco quando houver cor definida */
+.sniper-card.verde .card-side-badge,
+.sniper-card.amarela .card-side-badge,
+.sniper-card.vermelha .card-side-badge {
+    color: #ffffff;
+}
+
 .card-side-badge {
     writing-mode: vertical-rl;
     text-transform: uppercase;

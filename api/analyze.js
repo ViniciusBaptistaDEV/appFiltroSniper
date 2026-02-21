@@ -1,6 +1,16 @@
 // Pipeline Sniper V8.1: ESPN (grade) -> Gemini 2.5 Flash (Busca + Análise + Decisão) -> Saída para o front.
 // Implementa cache global com Upstash Redis (TTL 10 minutos) para economizar requisições.
 
+
+/* ===================  APIs  =================== */
+
+//Usar apenas uma das duas opções:
+// gemini-2.5-flash
+// gemini-3-flash-preview
+
+/* ====================================== */
+
+
 import { buscarJogos } from "./football.js";
 import { montarPromptSniper } from "./buildPrompt.js";
 
@@ -61,8 +71,12 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   const apiKey = cleanVar(process.env.GEMINI_API_KEY);
   const cleanModel = cleanVar(model);
 
-  // Gemini 2.5 + Ferramenta de Busca exige a rota v1beta obrigatoriamente
-  const apiVersion = "v1beta"; 
+  // LÓGICA CONDICIONAL DE VERSÃO (SISTEMA FLEX)
+  // Verifica se o modelo tem "2.5", "3" ou "preview" no nome, ou se usa Busca. 
+  // Se sim, usa a rota v1beta (obrigatória para os modelos mais novos e busca).
+  const isNextGen = cleanModel.includes("2.5") || cleanModel.includes("3") || cleanModel.includes("preview");
+  const apiVersion = (isNextGen || useSearch) ? "v1beta" : "v1"; 
+
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
 
   // Monta a "encomenda" (Payload) com o prompt e configurações de criatividade (temperature baixa = mais rigoroso)
@@ -88,7 +102,7 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   const data = await resp.json();
 
   if (data.error) {
-    console.error(`🚨 ERRO DA API GEMINI:`, JSON.stringify(data.error, null, 2));
+    console.error(`🚨 ERRO DA API GEMINI (${cleanModel} na rota ${apiVersion}):`, JSON.stringify(data.error, null, 2));
     throw new Error(`API Gemini recusou: ${data.error.message}`);
   }
 

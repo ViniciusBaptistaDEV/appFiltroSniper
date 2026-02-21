@@ -3,23 +3,33 @@
 // O enriquecimento (escalação/lesões/xG/árbitro/estilo...) é tarefa do Gemini Coletor.
 
 const ALLOWED_LEAGUES = [
-    // Ligas principais
-    "eng.1", // Premier League
-    "esp.1", // LaLiga
-    "ita.1", // Serie A
-    "ger.1", // Bundesliga
-    "fra.1", // Ligue 1
-    "bra.1", // Brasileirão Série A
-    "por.1", // Liga Portugal
-    "tur.1", // Süper Lig
-    "sco.1", // Scottish Premiership
-    // Continentais / seleções / copas
-    "uefa.champions",
-    "fifa.world",
-    "eng.fa",
-    "esp.copa_del_rey",
-    "fra.coupe_de_france",
-    "ita.coppa_italia"
+  // 🏆 ELITE EUROPEIA E BRASIL (Conforme Prompt V8.1)
+  "eng.1", // Premier League (Inglaterra)
+  "esp.1", // LaLiga (Espanha)
+  "ita.1", // Serie A (Itália)
+  "ger.1", // Bundesliga (Alemanha)
+  "fra.1", // Ligue 1 (França)
+  "por.1", // Liga Portugal
+  "sco.1", // Scottish Premiership (Escócia)
+  "bra.1", // Brasileirão Série A
+
+  // 💰 LIGAS DE ALTO INVESTIMENTO
+  "ksa.1", // Saudi Pro League (Arábia Saudita - PIF)
+
+  // 🌍 CONTINENTAIS E SELEÇÕES OFICIAIS
+  "uefa.champions",     // UEFA Champions League
+  "uefa.europa",        // UEFA Europa League
+  "fifa.world",         // Copa do Mundo
+  "uefa.euro",          // Eurocopa
+  "caf.nations",        // Copa Africana de Nações
+  "conmebol.america",   // Copa América
+
+  // 🛡️ COPAS NACIONAIS (Apenas as principais da Elite)
+  "eng.fa",             // FA Cup (Inglaterra)
+  "esp.copa_del_rey",   // Copa del Rey (Espanha)
+  "ita.coppa_italia",   // Coppa Italia
+  "ger.dfb_pokal",      // Copa da Alemanha
+  "fra.coupe_de_france" // Copa da França
 ];
 
 // Cache em memória por data com TTL

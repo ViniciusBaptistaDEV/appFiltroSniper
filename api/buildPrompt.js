@@ -340,24 +340,41 @@ Abaixo está a lista de jogos da ESPN:
 ${listaJogos}
 
 ===================================================================
+===================================================================
 INSTRUÇÃO CRÍTICA PARA SISTEMA DE SOFTWARE (SOBREPOSIÇÃO MÁXIMA):
 Você é a API de backend de uma aplicação. Você ESTÁ PROIBIDO de responder em texto livre.
-Você DEVE retornar EXCLUSIVAMENTE um objeto JSON válido. Nenhuma palavra pode existir fora das chaves { e }.
+Você DEVE retornar EXCLUSIVAMENTE um objeto JSON válido. 
 
-O JSON deve seguir EXATAMENTE esta estrutura, não importa o cenário (mesmo se abortar tudo):
+REGRA DE FORMATAÇÃO DO CAMPO "body":
+Para TODOS os itens dentro de "sections" (inclusive jogos abortados e Múltiplas), o campo "body" DEVE OBRIGATORIAMENTE conter estas exatas 5 tags divididas por " | ":
+[OPORTUNIDADE] texto | [TARGET] texto | [MOMENTO] texto | [CONTEXTO] texto | [CONFIDENCA] texto%
+
+O JSON deve seguir EXATAMENTE esta estrutura:
 {
-  "resultado": "Escreva aqui todo o seu raciocínio, o resumo operacional, as múltiplas e as mensagens de aborto geral. Tudo em formato Markdown.",
+  "resultado": "Resumo da operação finalizado.",
   "sections": [
     {
       "group": "RADAR DE VITÓRIAS",
       "title": "Nome Casa vs Nome Fora (Liga) — Horário",
-      "body": "[OPORTUNIDADE] Abortado | [TARGET] vs Fora | [MOMENTO] Dados insuficientes | [CONTEXTO] Escalação não confirmada | [CONFIDENCA] 0%",
-      "flag": "VERMELHA" 
+      "body": "[OPORTUNIDADE] Casa Vence | [TARGET] vs Fora | [MOMENTO] Justificativa | [CONTEXTO] Justificativa Tática | [CONFIDENCA] 85%",
+      "flag": "VERDE" 
+    },
+    {
+      "group": "JOGOS ABORTADOS",
+      "title": "Time A vs Time B (Liga) — Horário",
+      "body": "[OPORTUNIDADE] Abortado | [TARGET] N/A | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
+      "flag": "VERMELHA"
+    },
+    {
+      "group": "📝 MÚLTIPLAS",
+      "title": "Sugestão de montagem de bilhetes",
+      "body": "[OPORTUNIDADE] 1️⃣ ELITE: Jogo A + Jogo B | [TARGET] 2️⃣ VOLUME: Over Cantos | [MOMENTO] 3️⃣ SEGURANÇA: Dupla Chance | [CONTEXTO] Lembre-se: Gestão de banca sempre! | [CONFIDENCA] 100%",
+      "flag": "AMARELA"
     }
   ]
 }
 
-A chave "flag" só pode conter os valores: "VERDE", "AMARELA" ou "VERMELHA".
+A chave "flag" só pode conter: "VERDE", "AMARELA" ou "VERMELHA".
 Retorne o JSON agora:
 `;
 }
