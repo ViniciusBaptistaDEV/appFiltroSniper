@@ -168,9 +168,36 @@ button:disabled {
     border-left: 6px solid #64748b;
 }
 
-.sniper-card.verde { border-left-color: #22c55e !important; }
-.sniper-card.amarela { border-left-color: #eab308 !important; }
-.sniper-card.vermelha { border-left-color: #ef4444 !important; }
+.sniper-card.verde {
+    border-left-color: #22c55e !important;
+    background-color: #1e293b; /* Mantém o background padrão */
+}
+
+.sniper-card.amarela {
+    border-left-color: #eab308 !important;
+    background-color: #1e293b; /* Mantém o background padrão */
+}
+
+.sniper-card.vermelha {
+    border-left-color: #ef4444 !important;
+    background-color: #1e293b; /* Mantém o background padrão */
+}
+
+.card-side-badge {
+    writing-mode: vertical-rl;
+    text-transform: uppercase;
+    font-weight: 900;
+    position: absolute; /* Adicionado para posicionar corretamente */
+    left: 0;           /* Alinha à esquerda */
+    top: 0;            /* Alinha ao topo */
+    font-size: 10px;
+    padding: 15px 6px;
+    background: rgba(0, 0, 0, 0.3);
+    text-align: center;
+    letter-spacing: 2px;
+    color: #94a3b8;
+    transform: rotate(180deg);
+}
 
 .card-main { padding: 20px; flex: 1; }
 .match-league { font-size: 0.75rem; color: #22c55e; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
