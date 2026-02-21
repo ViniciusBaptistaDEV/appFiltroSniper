@@ -6,7 +6,7 @@
 
 //Usar apenas uma das duas opções:
 // gemini-2.5-flash
-// gemini-3-flash-preview
+// gemini-3-flash
 
 /* ====================================== */
 
@@ -74,7 +74,9 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   // LÓGICA CONDICIONAL DE VERSÃO (SISTEMA FLEX)
   // Verifica se o modelo tem "2.5", "3" ou "preview" no nome, ou se usa Busca. 
   // Se sim, usa a rota v1beta (obrigatória para os modelos mais novos e busca).
-  const isNextGen = cleanModel.includes("2.5") || cleanModel.includes("3") || cleanModel.includes("preview");
+  // LÓGICA CONDICIONAL DE VERSÃO (SISTEMA FLEX INFINITO)
+  // Aceita 2.5 e qualquer Gemini do 3 ao 9 automaticamente.
+  const isNextGen = /gemini-(2\.5|[3-9])/.test(cleanModel) || cleanModel.includes("preview");
   const apiVersion = (isNextGen || useSearch) ? "v1beta" : "v1"; 
 
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
