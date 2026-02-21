@@ -71,7 +71,7 @@ async function callGeminiJSON(promptText, model = "gemini-1.5-flash", useSearch 
   const apiKey = cleanVar(process.env.GEMINI_API_KEY);
   const cleanModel = cleanVar(model);
 
-// LÓGICA SNIPER: 2.5 e Search exigem v1beta. O resto pode usar v1.
+  // LÓGICA SNIPER: 2.5 e Search exigem v1beta. O resto pode usar v1.
   const apiVersion = (cleanModel.includes("2.5") || useSearch) ? "v1beta" : "v1";
 
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
@@ -85,10 +85,12 @@ async function callGeminiJSON(promptText, model = "gemini-1.5-flash", useSearch 
     }
   };
 
-  // 2. Configuração da Ferramenta de Busca (Apenas para o Collector)
+  // 2. Configuração da Ferramenta de Busca (Simplificada para 2026)
   if (useSearch) {
-    // Na v1beta o campo correto para Grounding é este:
-    payload.tools = [{ googleSearchRetrieval: { dynamicRetrievalConfig: { mode: "MODE_DYNAMIC", dynamicThreshold: 0.3 } } }];
+    // O Google agora exige 'googleSearch' em vez de 'googleSearchRetrieval'
+    payload.tools = [{
+      googleSearch: {}
+    }];
   }
 
   const resp = await fetch(url, {
