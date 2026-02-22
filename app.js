@@ -96,20 +96,35 @@ function renderSectionsAsCards(sections) {
                 <div class="card-main">
                     <div class="match-league">${sec.group}</div>
                     <div class="match-title">${sec.title.split(' — ')[0]}</div>
-                    <div class="match-time">🕒 Início: ${(sec.title.split(' — ')[1] || '--:--').replace('Z', '')}</div>
                     <div class="match-time">
-                        🕒 Início: ${(() => {
-                                    const timeStr = sec.title.split(' — ')[1];
-                                    if (!timeStr) return '--:--';
+                        ${flagClass === "multipla" ? "" : (() => {
+                                    const titleParts = sec.title.split(' — ');
+                                    const timeStr = titleParts[1]; // Pega a parte do horário
 
-                                    // Se tiver o Z, ele converte para a hora do seu celular automaticamente
-                                    if (timeStr.includes('Z')) {
-                                        const [hours, minutes] = timeStr.replace('Z', '').split(':');
+                                    if (!timeStr) return '🕒 Início: --:--';
+
+                                    // Captura os números da hora e minuto, independente de ter Z ou UTC
+                                    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+
+                                    if (match) {
+                                        const horasUTC = parseInt(match[1], 10);
+                                        const minutosUTC = parseInt(match[2], 10);
+
                                         const data = new Date();
-                                        data.setUTCHours(parseInt(hours), parseInt(minutes));
-                                        return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                        // Define a hora em UTC (Horário Mundial)
+                                        data.setUTCHours(horasUTC, minutosUTC, 0, 0);
+
+                                        // Converte automaticamente para o fuso do seu celular (Brasília)
+                                        const horaLocal = data.toLocaleTimeString('pt-BR', {
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: false
+                                        });
+
+                                        return `🕒 Início: ${horaLocal}`;
                                     }
-                                    return timeStr;
+
+                                    return `🕒 Início: ${timeStr.replace('Z', '').replace('UTC', '')}`;
                                 })()}
                     </div>
                     
@@ -121,7 +136,7 @@ function renderSectionsAsCards(sections) {
                         </div>
                     ` : `
                         <div class="status-success">🎯 ${parts["OPORTUNIDADE"]}</div>
-                        <div class="target-info">${flagClass === "multipla" ? "" : "Alvo"}: ${parts["TARGET"]}</div>
+                        <div class="target-info">${flagClass === "multipla" ? "Alvo" : "Alvo"}: ${parts["TARGET"]}</div>
                         <div class="rationale-grid">
                             <div class="rat-item"><strong>${flagClass === "multipla" ? "Lista" : "Momento"}:</strong> ${parts["MOMENTO"]}</div>
                             <div class="rat-item"><strong>Contexto:</strong> ${parts["CONTEXTO"]}</div>
