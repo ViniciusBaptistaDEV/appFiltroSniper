@@ -222,8 +222,11 @@ export default async function handler(req, res) {
           return match ? parseInt(match[1]) : 0;
         }).filter(n => n > 0);
 
-        const mediaConfianca = listaConfiancas.length > 0
-          ? Math.round(listaConfiancas.reduce((a, b) => a + b, 0) / listaConfiancas.length)
+        // --- 🧠 CÁLCULO DE PROBABILIDADE REAL (MULTIPLICAÇÃO) ---
+        const probabilidadeReal = listaConfiancas.length > 0
+          ? Math.round(
+            listaConfiancas.reduce((acc, val) => acc * (val / 100), 1) * 100
+          )
           : 0;
 
         // Formata a lista de apostas exatamente como você pediu: TIME - PALPITE
@@ -242,7 +245,7 @@ export default async function handler(req, res) {
           group: "RADAR DE VITÓRIAS",
           title: "🎫 BILHETE COMBINADO",
           // PREENCHEMOS AS TAGS PARA O JS DO SITE DISTRIBUIR NOS CAMPOS:
-          body: `[OPORTUNIDADE] Múltipla de Segurança | [TARGET] | [MOMENTO] ${listaDeApostas} | [CONTEXTO] Cruzamento tático dos cenários Verdes da rodada com alta probabilidade. | [CONFIDENCA] ${mediaConfianca}%`,
+          body: `[OPORTUNIDADE] Múltipla de Segurança | [TARGET] Jogos verdes com probabilidade acima de 80% | [MOMENTO] ${listaDeApostas} | [CONTEXTO] Cruzamento tático dos cenários Verdes da rodada com alta probabilidade. | [CONFIDENCA] ${probabilidadeReal}%`,
           flag: "MULTIPLA" // Isso fará aparecer "MULTIPLA" na lateral. Se o seu CSS tiver a cor azul para essa classe, ficará perfeito!
         });
       }
