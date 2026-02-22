@@ -209,7 +209,7 @@ export default async function handler(req, res) {
         const match = s.body.match(/\[CONFIDENCA\] (\d+)%/);
         const valorConfianca = match ? parseInt(match[1]) : 0;
         
-        return valorConfianca >= 85;
+        return valorConfianca >= 80;
       });
 
       // 3. Só cria a múltipla se sobrarem 2 ou mais jogos após o filtro de 85%
