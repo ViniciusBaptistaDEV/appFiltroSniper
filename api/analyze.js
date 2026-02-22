@@ -166,7 +166,7 @@ export default async function handler(req, res) {
     if (!analisePronta) {
       
       console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de 3 (Sniper Máximo)...`);
-      const lotes = fatiarArray(grade, 3);
+      const lotes = fatiarArray(grade, 6);
       
       // Cria as "tarefas" para rodarem todas ao mesmo tempo (Processamento Paralelo)
       const tarefas = lotes.map(async (lote, index) => {
@@ -194,24 +194,45 @@ export default async function handler(req, res) {
       // Junta todas as respostas separadas em uma lista gigante única
       let todasAsSections = resultadosParalelos.flat();
 
-      // --- 🧠 MÁGICA DAS MÚLTIPLAS (FEITA PELO CÓDIGO) ---
-      // Limpa qualquer lixo de múltipla que a IA tenha tentado criar sozinha
-      let sectionsLimpas = todasAsSections.filter(s => s && s.group !== "📝 MÚLTIPLAS");
+    // --- 🧠 MÁGICA DAS MÚLTIPLAS (FEITA PELO CÓDIGO) ---
+      // Limpa as múltiplas velhas
+      let sectionsLimpas = todasAsSections.filter(s => s && s.group !== "📝 MÚLTIPLAS" && s.group !== "RADAR DE MÚLTIPLAS");
       
       // Pega só a NATA (os Verdes)
       const jogosVerdes = sectionsLimpas.filter(s => s.flag === "VERDE");
       
       if (jogosVerdes.length >= 2) {
-        // Extrai o nome do time da casa dos jogos aprovados
-        const nomesVerdes = jogosVerdes.map(j => j.title.split(" vs ")[0]).join(" + ");
-        
+        // Extrai o palpite exato de cada jogo e formata no estilo profissional
+        const listaDeApostas = jogosVerdes.map(j => {
+          const confronto = j.title.split(" (")[0].toUpperCase();
+          let palpite = "";
+          try {
+            palpite = j.body.split("|")[0].replace("[OPORTUNIDADE]", "").trim();
+          } catch(e) {}
+          return `${confronto} ➡️ ${palpite}`;
+        }).join("  •  "); 
+
         sectionsLimpas.push({
-          group: "📝 MÚLTIPLAS",
-          title: "1️⃣ MÚLTIPLA DE ELITE (Consolidada)",
-          body: `[OPORTUNIDADE] ${nomesVerdes} | [TARGET] Odd Combinada de Elite | [MOMENTO] Cruzamento inteligente de todos os favoritos aprovados hoje. | [CONTEXTO] Validação tática completa concluída pela IA. | [CONFIDENCA] 85%`,
-          flag: "AMARELA"
+          group: "RADAR DE MÚLTIPLAS", 
+          title: "🎫 BILHETE COMBINADO (MÚLTIPLA IA)",
+          body: `[OPORTUNIDADE] Bilhete Pronto | [TARGET] Múltipla de Elite | [MOMENTO] JOGOS DA MÚLTIPLA: ${listaDeApostas} | [CONTEXTO] Cruzamento tático inteligente de todos os palpites aprovados (Flags Verdes) nesta rodada. | [CONFIDENCA] 85%`,
+          flag: "VERDE" 
         });
       }
+
+      // --- 🔄 ORDENAÇÃO DE CARDS (HIERARQUIA VISUAL) ---
+      // Organiza por: 1º Verdes, 2º Amarelos, 3º Múltipla, 4º Vermelhos.
+      // Mantém a ordem cronológica original de horário dentro de cada grupo.
+      sectionsLimpas.sort((a, b) => {
+        const getPeso = (card) => {
+          if (card.group === "RADAR DE MÚLTIPLAS") return 3; // Múltipla em 3º lugar
+          if (card.flag === "VERDE") return 1;               // Verdes no topo
+          if (card.flag === "AMARELA") return 2;             // Amarelos logo abaixo
+          if (card.flag === "VERMELHA") return 4;            // Vermelhos no final (Lixo)
+          return 5; // Segurança para qualquer outro padrão
+        };
+        return getPeso(a) - getPeso(b);
+      });
 
       analisePronta = {
         resultado: `Análise finalizada em modo turbo paralelo. Processados ${lotes.length} lotes de jogos.`,

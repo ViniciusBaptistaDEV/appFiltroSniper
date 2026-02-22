@@ -339,9 +339,9 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         font-size: 1.1rem;
     }
 
-    input[type="date"] {
-        padding-left: 5px; /* Reduz o padding para evitar espaço excessivo */
-    }
+    /* input[type="date"] {
+        padding-left: 5px; Reduz o padding para evitar espaço excessivo
+    } */
 
     /* Ajuste do Card no Mobile */
     .sniper-card { flex-direction: column; } /* Coluna normal: Badge em cima, conteúdo embaixo */
