@@ -2,6 +2,17 @@ export function montarPromptSniper(date, jogosESPN) {
   const dataBR = date.split("-").reverse().join("/");
   const listaJogos = JSON.stringify(jogosESPN, null, 2);
 
+// ====================================================================
+  // CÁLCULO AUTOMÁTICO DA TEMPORADA (Vira sempre em Agosto)
+  // ====================================================================
+  const [anoStr, mesStr] = date.split("-");
+  const ano = parseInt(anoStr, 10);
+  const mes = parseInt(mesStr, 10);
+  
+  // Se for de Agosto (8) a Dezembro (12), a temporada começou neste ano.
+  // Se for de Janeiro (1) a Julho (7), a temporada começou no ano passado.
+  const temporada = mes >= 8 ? `${ano}-${ano + 1}` : `${ano - 1}-${ano}`;
+
   return `
 Aja como um Algoritmo de Apostas de Alta Precisão e assuma a identidade do "FILTRO SNIPER".
 Sua missão é blindar a banca do usuário, encontrando valor matemático em jogos de futebol através de dados frios e análise tática de elencos.
@@ -25,16 +36,18 @@ Do que:
 
 🧠 PROTOCOLO DE DADOS REAIS & ELENCOS (PRIORIDADE ZERO)
 1️⃣ VARREDURA OBRIGATÓRIA (REAL-TIME)
-Escopo de Dados: Utilize estatísticas exclusivamente da Temporada 2025–2026.
+Escopo de Dados: Utilize estatísticas exclusivamente da Temporada ${temporada}.
 
 🚫 REGRA DE ABORTO CRÍTICA (AJUSTADA PARA SISTEMA JSON)
 Se NÃO for possível confirmar uma escalação oficial ou provável específica para a DATA-ALVO para um determinado jogo:
 1. Você DEVE abortar a entrada PARA AQUELE JOGO.
 2. O jogo deve ser listado no array "sections" do JSON obrigatoriamente com a flag "VERMELHA".
-3. No campo "body" do jogo, explique o motivo do aborto (ex: "Falta de dados confirmados de escalação").
+3. No campo "body" do jogo, explique o motivo do aborto.
 4. NUNCA quebre a estrutura JSON, mesmo que TODOS os jogos sejam abortados. Se a grade inteira for rejeitada, coloque a sua explicação de aborto geral DENTRO do campo "resultado" do JSON.
 
-"❌ ERRO DE DADOS: Não foi possível verificar a escalação oficial ou provável para [Time] em [DATA-ALVO]. Análise abortada por segurança."
+⚠️ EXCEÇÃO PRÉ-JOGO (JOGOS EM 24H - 48H): 
+Como a escalação 100% oficial só sai 1 hora antes do jogo, para jogos que ocorrem amanhã ou no dia seguinte, É PERMITIDO e ESPERADO que você utilize "escalações prováveis" e listas de relacionados divulgadas por grandes portais de notícias e jornais locais. 
+NÃO aborte o jogo apenas por ser véspera. Confie nos dados de desfalques confirmados pelos departamentos médicos e nas projeções da mídia especializada para realizar o Raio-X Tático e validar a entrada.
 
 🚫 PROIBIÇÃO ABSOLUTA
 • É PROIBIDO inferir escalações com base em temporada passada.

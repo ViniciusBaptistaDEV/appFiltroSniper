@@ -93,9 +93,15 @@ function renderSectionsAsCards(sections) {
 
         const isAbortado = parts["STATUS"] === "ABORTADO";
 
+        // Normaliza o texto da flag para garantir que apareça "VERDE", "AMARELA" ou "VERMELHA"
+        let badgeText = sec.flag || "";
+        if (flagClass === "verde") badgeText = "VERDE";
+        else if (flagClass === "amarela") badgeText = "AMARELA";
+        else if (flagClass === "vermelha") badgeText = "VERMELHA";
+
         return `
             <div class="sniper-card ${flagClass}">
-                <div class="card-side-badge">${sec.flag}</div>
+                <div class="card-side-badge">${badgeText}</div>
                 <div class="card-main">
                     <div class="match-league">${sec.group}</div>
                     <div class="match-title">${sec.title.split(' — ')[0]}</div>

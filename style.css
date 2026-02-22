@@ -165,42 +165,37 @@ button:disabled {
     display: flex;
     overflow: hidden;
     border: 1px solid #334155;
-    border-left: 6px solid #64748b;
+    /* Removemos a borda esquerda pois agora usaremos a div .card-side-badge como barra lateral */
 }
 
-.sniper-card.verde {
-    border-left-color: #22c55e !important;
-    background-color: #1e293b; /* Mantém o background padrão */
+/* Configura as cores de fundo da BARRA LATERAL (badge) e força texto branco */
+.sniper-card.verde .card-side-badge {
+    background-color: #22c55e;
+    color: #ffffff;
 }
-
-.sniper-card.amarela {
-    border-left-color: #eab308 !important;
-    background-color: #1e293b; /* Mantém o background padrão */
+.sniper-card.amarela .card-side-badge {
+    background-color: #eab308;
+    color: #ffffff;
 }
-
-.sniper-card.vermelha {
-    border-left-color: #ef4444 !important;
-    background-color: #1e293b; /* Mantém o background padrão */
-}
-
-/* Garante que o texto da flag fique branco quando houver cor definida */
-.sniper-card.verde .card-side-badge,
-.sniper-card.amarela .card-side-badge,
 .sniper-card.vermelha .card-side-badge {
+    background-color: #ef4444;
     color: #ffffff;
 }
 
 .card-side-badge {
+    /* Layout da barra lateral */
+    width: 40px; /* Largura fixa para caber o texto vertical */
+    flex-shrink: 0; /* Não deixa espremer */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #334155; /* Cor padrão cinza se não tiver flag */
+    
+    /* Tipografia Vertical */
     writing-mode: vertical-rl;
     text-transform: uppercase;
     font-weight: 900;
-    position: absolute; /* Adicionado para posicionar corretamente */
-    left: 0;           /* Alinha à esquerda */
-    top: 0;            /* Alinha ao topo */
-    font-size: 10px;
-    padding: 15px 6px;
-    background: rgba(0, 0, 0, 0.3);
-    text-align: center;
+    font-size: 12px;
     letter-spacing: 2px;
     color: #94a3b8;
     transform: rotate(180deg);
@@ -342,13 +337,13 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
     }
 
     /* Ajuste do Card no Mobile */
-    .sniper-card { flex-direction: column-reverse; }
+    .sniper-card { flex-direction: column; } /* Coluna normal: Badge em cima, conteúdo embaixo */
     .card-side-badge { 
         writing-mode: horizontal-tb; 
         transform: none; 
         width: 100%; 
-        padding: 5px; 
-        font-size: 9px;
+        height: 30px; /* Altura fixa da faixa no topo */
+        font-size: 11px;
     }
 
     .rationale-grid { grid-template-columns: 1fr; }
