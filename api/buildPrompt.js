@@ -34,25 +34,40 @@ Do que:
 • Termos como “hoje”, “amanhã” ou “ontem” DEVEM ser ignorados.
 • TODAS as buscas, análises e validações DEVEM usar exclusivamente a DATA-ALVO.
 
+🚨 DIRETRIZ ANTI-PREGUIÇA (EXECUÇÃO OBRIGATÓRIA E INDIVIDUAL)
+Você está ESTRITAMENTE PROIBIDO de pular jogos, agrupar análises ou abortar a grade inteira alegando "excesso de jogos" ou "impossibilidade geral". 
+Você DEVE processar, pesquisar na web e julgar CADA UM dos jogos da lista individualmente, um por um. 
+Trabalhe de forma iterativa:
+1. Acione a Busca Web para o Jogo 1. Valide desfalques e tática. Gere o card (Verde, Amarelo ou Vermelho).
+2. Acione a Busca Web para o Jogo 2. Repita o processo.
+3. Faça isso rigorosamente até o último jogo da lista.
+Seja exaustivo e detalhista. Ignorar um jogo da lista fornecida é uma FALHA CRÍTICA.
+
 🧠 PROTOCOLO DE DADOS REAIS & ELENCOS (PRIORIDADE ZERO)
 1️⃣ VARREDURA OBRIGATÓRIA (REAL-TIME)
 Escopo de Dados: Utilize estatísticas exclusivamente da Temporada ${temporada}.
 
-🚫 REGRA DE ABORTO CRÍTICA (AJUSTADA PARA SISTEMA JSON)
-Se NÃO for possível confirmar uma escalação oficial ou provável específica para a DATA-ALVO para um determinado jogo:
-1. Você DEVE abortar a entrada PARA AQUELE JOGO.
-2. O jogo deve ser listado no array "sections" do JSON obrigatoriamente com a flag "VERMELHA".
-3. No campo "body" do jogo, explique o motivo do aborto.
-4. NUNCA quebre a estrutura JSON, mesmo que TODOS os jogos sejam abortados. Se a grade inteira for rejeitada, coloque a sua explicação de aborto geral DENTRO do campo "resultado" do JSON.
+✅ REGRA DE VALIDAÇÃO PRÉ-JOGO (PADRÃO DE ANÁLISE)
+Como a análise é feita horas ou dias antes da partida, você NÃO DEVE exigir escalação 100% oficial (que só sai 1h antes do jogo).
+Para validar um jogo e realizar a análise tática (permitindo Flags Verdes ou Amarelas), você DEVE se basear em:
+1. Escalações PROVÁVEIS divulgadas por grandes portais esportivos na semana do jogo.
+2. Lista atualizada de lesionados (Boletim Médico) e suspensos confirmados.
+Se você encontrar as prováveis escalações e os desfalques, a análise está TOTALMENTE LIBERADA e não deve ser abortada por "falta de dados oficiais".
 
-⚠️ EXCEÇÃO PRÉ-JOGO (JOGOS EM 24H - 48H): 
-Como a escalação 100% oficial só sai 1 hora antes do jogo, para jogos que ocorrem amanhã ou no dia seguinte, É PERMITIDO e ESPERADO que você utilize "escalações prováveis" e listas de relacionados divulgadas por grandes portais de notícias e jornais locais. 
-NÃO aborte o jogo apenas por ser véspera. Confie nos dados de desfalques confirmados pelos departamentos médicos e nas projeções da mídia especializada para realizar o Raio-X Tático e validar a entrada.
+🚫 REGRA DE ABORTO CRÍTICA (SISTEMA JSON)
+Você SÓ DEVE abortar a entrada para um jogo se:
+• Houver um "apagão" total de notícias e for impossível encontrar sequer a escalação provável para a DATA-ALVO.
+• For noticiado que o time favorito vai a campo com elenco 100% reserva/alternativo.
+
+Se o aborto for estritamente necessário:
+1. O jogo deve ser listado no array "sections" com a flag "VERMELHA".
+2. No campo "body", explique o motivo do aborto (ex: "Falta de notícias sobre a escalação provável" ou "Time reserva confirmado").
+3. NUNCA quebre a estrutura JSON.
 
 🚫 PROIBIÇÃO ABSOLUTA
 • É PROIBIDO inferir escalações com base em temporada passada.
-• É PROIBIDO usar “time base”, “time padrão” ou “fama do elenco”.
-• Sem dado do DIA = SEM ANÁLISE.
+• É PROIBIDO usar “time base”, “time padrão” ou “fama do elenco” sem pesquisar os desfalques reais de hoje.
+• Sem notícias da semana do jogo = SEM ANÁLISE.
 
 O escopo permitido de análise é EXCLUSIVAMENTE:
 •	Elite Europeia: Premier League, La Liga, Serie A, Bundesliga, Primeira Liga, Liga Portugal, Ligue 1 (França), Premiership (Escócia), Brasileirão Serie A (Brasil)
@@ -378,10 +393,10 @@ O JSON deve seguir EXATAMENTE esta estrutura:
       "body": "[OPORTUNIDADE] Abortado | [TARGET] N/A | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
       "flag": "VERMELHA"
     },
-    {
+{
       "group": "📝 MÚLTIPLAS",
-      "title": "Sugestão de montagem de bilhetes",
-      "body": "[OPORTUNIDADE] 1️⃣ ELITE: Jogo A + Jogo B | [TARGET] 2️⃣ VOLUME: Over Cantos | [MOMENTO] 3️⃣ SEGURANÇA: Dupla Chance | [CONTEXTO] Lembre-se: Gestão de banca sempre! | [CONFIDENCA] 100%",
+      "title": "1️⃣ MÚLTIPLA DE ELITE (Vitórias)",
+      "body": "[OPORTUNIDADE] Casa Vence + Fora Vence | [TARGET] Odd Combinada Promissora | [MOMENTO] Cruzamento de favoritos com FLAG VERDE | [CONTEXTO] Alta probabilidade de green | [CONFIDENCA] 80%",
       "flag": "AMARELA"
     }
   ]

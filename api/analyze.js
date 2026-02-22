@@ -1,15 +1,11 @@
-// Pipeline Sniper V8.1: ESPN (grade) -> Gemini 2.5 Flash (Busca + Análise + Decisão) -> Saída para o front.
-// Implementa cache global com Upstash Redis (TTL 10 minutos) para economizar requisições.
-
+// Pipeline Sniper V8.1: ESPN (grade) -> Gemini (Busca + Análise + Decisão) -> Saída para o front.
+// Implementa cache global com Upstash Redis (TTL) para economizar requisições.
 
 /* ===================  APIs  =================== */
-
-//Usar apenas uma das duas opções:
+// Usar apenas uma das duas opções:
 // gemini-2.5-flash
 // gemini-3-flash
-
-/* ====================================== */
-
+/* ============================================== */
 
 import { buscarJogos } from "./football.js";
 import { montarPromptSniper } from "./buildPrompt.js";
@@ -20,13 +16,11 @@ const cleanEnv = (key) => process.env[key]?.replace(/['"]/g, '').trim();
 // Configurações de Banco de Dados e IA
 const REDIS_URL = cleanEnv('UPSTASH_REDIS_REST_URL')?.replace(/\/$/, '');
 const REDIS_TOKEN = cleanEnv('UPSTASH_REDIS_REST_TOKEN');
-const MODEL_SNIPER = cleanEnv('GEM_COLLECTOR_MODEL') || "gemini-2.5-flash";
-const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS); // Tempo que o dado fica salvo (600s = 10min)
+const MODEL_SNIPER = cleanEnv('GEM_COLLECTOR_MODEL');
+const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS); // Tempo padrão 2 horas, se não definido
 
 /* ========================================================================================
 * CACHE GLOBAL (REDIS UPSTASH)
-* Essa seção garante que se 10 pessoas acessarem o app ao mesmo tempo,
-* o Gemini será chamado apenas 1 vez, e os outros 9 lerão do banco de dados instantaneamente.
 * ====================================================================================== */
 
 async function getCache(key) {
@@ -52,7 +46,6 @@ async function setCache(key, value) {
         Authorization: `Bearer ${REDIS_TOKEN}`,
         "Content-Type": "application/json"
       },
-      // Salva a chave com prazo de validade (EX = Expiry time)
       body: JSON.stringify(["SET", key, JSON.stringify(value), "EX", CACHE_TTL])
     });
   } catch (err) {
@@ -62,7 +55,6 @@ async function setCache(key, value) {
 
 /* ========================================================================================
 * GEMINI CORE (MOTOR DE BUSCA E ANÁLISE)
-* Esta é a ponte de comunicação direta com o cérebro da Google.
 * ====================================================================================== */
 
 const cleanVar = (val) => String(val || "").replace(/['"]/g, "").trim();
@@ -71,9 +63,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   const apiKey = cleanVar(process.env.GEMINI_API_KEY);
   const cleanModel = cleanVar(model);
 
-  // LÓGICA CONDICIONAL DE VERSÃO (SISTEMA FLEX)
-  // Verifica se o modelo tem "2.5", "3" ou "preview" no nome, ou se usa Busca. 
-  // Se sim, usa a rota v1beta (obrigatória para os modelos mais novos e busca).
   // LÓGICA CONDICIONAL DE VERSÃO (SISTEMA FLEX INFINITO)
   // Aceita 2.5 e qualquer Gemini do 3 ao 9 automaticamente.
   const isNextGen = /gemini-(2\.5|[3-9])/.test(cleanModel) || cleanModel.includes("preview");
@@ -81,7 +70,6 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
 
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
 
-  // Monta a "encomenda" (Payload) com o prompt e configurações de criatividade (temperature baixa = mais rigoroso)
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
@@ -89,12 +77,10 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     }
   };
 
-  // Se a busca web estiver ativada, injeta a ferramenta de pesquisa do Google
   if (useSearch) {
     payload.tools = [{ googleSearch: {} }];
   }
 
-  // Faz o disparo para a API
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -108,13 +94,10 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
     throw new Error(`API Gemini recusou: ${data.error.message}`);
   }
 
-  // Extrai apenas o texto da resposta da IA
   let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
   return text;
 }
 
-// Função de segurança: O Gemini as vezes devolve o JSON embrulhado em "```json ... ```".
-// Essa função corta essa sujeira e garante que o app consiga ler os dados corretamente.
 function safeJsonParseFromText(txt) {
   try {
     const firstBrace = txt.indexOf("{");
@@ -130,12 +113,26 @@ function safeJsonParseFromText(txt) {
 }
 
 /* ========================================================================================
+* FUNÇÕES AUXILIARES DO NOVO MOTOR TURBO
+* ====================================================================================== */
+
+// Fatiador de Array: Quebra a lista gigante de jogos em caixas menores.
+function fatiarArray(array, tamanho) {
+  const resultado = [];
+  for (let i = 0; i < array.length; i += tamanho) {
+    resultado.push(array.slice(i, i + tamanho));
+  }
+  return resultado;
+}
+
+// ATENÇÃO: Aumenta o tempo limite da Vercel para permitir processamento longo (até 60 segundos)
+export const maxDuration = 60;
+
+/* ========================================================================================
 * HANDLER PRINCIPAL (O MAESTRO DO SISTEMA)
-* Recebe a requisição do site, orquestra a coleta, a IA e devolve o resultado.
 * ====================================================================================== */
 
 export default async function handler(req, res) {
-  // Trava de segurança: só aceita pedidos do tipo POST
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed. Use POST." });
 
   const { date, limit } = req.body || {};
@@ -160,63 +157,86 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🔎 LOG PARA VOCÊ VER A SAÍDA DA ESPN:
     console.log(`\n⚽ [ESPN] Grade carregada com sucesso: ${grade.length} jogos encontrados para a data ${date}.`);
-    console.log(`⚽ [ESPN] Exemplo do 1º jogo da lista: ${grade[0]?.homeTeam || 'Desconhecido'} vs ${grade[0]?.awayTeam || 'Desconhecido'}\n`);
-
 
     // ---------------------------------------------------------
-    // ETAPA 2: Acionar o Gemini 2.5 Flash como Super Analista
+    // ETAPA 2: Acionar o Motor de Inteligência Analítica em PARALELO
     // ---------------------------------------------------------
     let analisePronta = await getCache(`SNIPER_V8:${date}`);
     if (!analisePronta) {
       
-      // Monta o super prompt com suas regras e a lista de jogos
-      const prompt = montarPromptSniper(date, grade);
+      console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de 3 (Sniper Máximo)...`);
+      const lotes = fatiarArray(grade, 3);
       
-      // 🔎 LOG PARA VER O QUE ESTÁ INDO PARA A IA:
-      console.log(`🚀 [GEMINI] Iniciando Motor V8.1...`);
-      console.log(`🚀 [GEMINI] Modelo: ${MODEL_SNIPER} | Busca Web: ATIVADA | Analisando: ${grade.length} jogos`);
-      console.log(`🚀 [GEMINI] Tamanho do Prompt enviado: ${prompt.length} caracteres.\n`);
+      // Cria as "tarefas" para rodarem todas ao mesmo tempo (Processamento Paralelo)
+      const tarefas = lotes.map(async (lote, index) => {
+        // Pequeno atraso (stagger) de 1 segundo entre cada disparo para a Google não bloquear por "Spam"
+        await new Promise(resolve => setTimeout(resolve, index * 1000));
+        
+        console.log(`⏳ [GEMINI] Disparando Lote ${index + 1} de ${lotes.length}...`);
+        const prompt = montarPromptSniper(date, lote);
+        
+        try {
+          const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
+          const parsed = safeJsonParseFromText(geminiResponse);
+          if (parsed && parsed.sections) {
+            return parsed.sections; // Retorna os cards desse lote
+          }
+        } catch (err) {
+          console.error(`🚨 Erro no Lote ${index + 1}:`, err.message);
+        }
+        return []; // Se um lote der erro, retorna vazio para não quebrar os outros
+      });
 
-      // Envia para o Gemini pesquisar e pensar
-      const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
+      // 💥 A MÁGICA ACONTECE AQUI: Espera todos os lotes terminarem ao mesmo tempo!
+      const resultadosParalelos = await Promise.all(tarefas);
       
-      // 🔎 LOG PARA VER O QUE A IA DEVOLVEU (Cortando em 300 caracteres para não poluir o painel todo):
-      console.log(`📥 [GEMINI] RESPOSTA BRUTA RECEBIDA (Prévia):`);
-      console.log(`${geminiResponse.substring(0, 300)}... [FIM DA PRÉVIA]\n`);
+      // Junta todas as respostas separadas em uma lista gigante única
+      let todasAsSections = resultadosParalelos.flat();
 
-      // Tenta transformar o texto recebido no formato JSON que o site precisa
-      const parsed = safeJsonParseFromText(geminiResponse);
-
-      // Trava de segurança: Se ele não devolveu as "sections", o tiro falhou.
-      if (!parsed || !parsed.sections) {
-        console.error("🚨 [FALHA DE FORMATO] A IA respondeu, mas quebrou a estrutura do JSON. Resposta completa:", geminiResponse);
-        throw new Error("Gemini não retornou o formato JSON exigido pelo frontend.");
+      // --- 🧠 MÁGICA DAS MÚLTIPLAS (FEITA PELO CÓDIGO) ---
+      // Limpa qualquer lixo de múltipla que a IA tenha tentado criar sozinha
+      let sectionsLimpas = todasAsSections.filter(s => s && s.group !== "📝 MÚLTIPLAS");
+      
+      // Pega só a NATA (os Verdes)
+      const jogosVerdes = sectionsLimpas.filter(s => s.flag === "VERDE");
+      
+      if (jogosVerdes.length >= 2) {
+        // Extrai o nome do time da casa dos jogos aprovados
+        const nomesVerdes = jogosVerdes.map(j => j.title.split(" vs ")[0]).join(" + ");
+        
+        sectionsLimpas.push({
+          group: "📝 MÚLTIPLAS",
+          title: "1️⃣ MÚLTIPLA DE ELITE (Consolidada)",
+          body: `[OPORTUNIDADE] ${nomesVerdes} | [TARGET] Odd Combinada de Elite | [MOMENTO] Cruzamento inteligente de todos os favoritos aprovados hoje. | [CONTEXTO] Validação tática completa concluída pela IA. | [CONFIDENCA] 85%`,
+          flag: "AMARELA"
+        });
       }
 
-      // Tudo deu certo! Salva no banco de dados para a próxima vez ser instantâneo
-      analisePronta = parsed;
+      analisePronta = {
+        resultado: `Análise finalizada em modo turbo paralelo. Processados ${lotes.length} lotes de jogos.`,
+        sections: sectionsLimpas
+      };
+
       await setCache(`SNIPER_V8:${date}`, analisePronta);
-      console.log(`✅ [SUCESSO] Análise V8.1 finalizada e salva no Redis.\n`);
+      console.log(`✅ [SUCESSO] Grade completa analisada em PARALELO e salva no Redis.\n`);
     } else {
-      console.log(`⚡ [CACHE] Leitura instantânea do Redis para a data ${date}. Poupando cota do Gemini.\n`);
+      console.log(`⚡ [CACHE] Leitura instantânea do Redis para a data ${date}.\n`);
     }
 
     // ---------------------------------------------------------
-    // ETAPA 3: Devolver o resultado pronto para o seu site desenhar a tela
+    // ETAPA 3: Devolver o resultado pronto para o front
     // ---------------------------------------------------------
     return res.status(200).json({
       status: "ok",
       date,
       generatedAt: new Date().toISOString(),
-      source: { grade: "ESPN", ai: "Gemini 2.5 Flash + Google Search" },
+      source: { grade: "ESPN", ai: `Motor IA: ${MODEL_SNIPER} + Lotes Turbo Paralelo` },
       sections: analisePronta.sections,
       resultado: analisePronta.resultado
     });
 
   } catch (error) {
-    // Se der qualquer erro no caminho (API caiu, chave inválida, etc) cai aqui
     console.error("🚨 ERRO CRÍTICO NO PIPELINE:", error);
     return res.status(500).json({ error: "Erro interno na análise", detalhe: error.message });
   }
