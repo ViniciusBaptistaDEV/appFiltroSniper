@@ -96,7 +96,22 @@ function renderSectionsAsCards(sections) {
                 <div class="card-main">
                     <div class="match-league">${sec.group}</div>
                     <div class="match-title">${sec.title.split(' — ')[0]}</div>
-                    <div class="match-time">🕒 Kickoff: ${sec.title.split(' — ')[1] || '--:--'}</div>
+                    <div class="match-time">🕒 Início: ${(sec.title.split(' — ')[1] || '--:--').replace('Z', '')}</div>
+                    <div class="match-time">
+                        🕒 Início: ${(() => {
+                                    const timeStr = sec.title.split(' — ')[1];
+                                    if (!timeStr) return '--:--';
+
+                                    // Se tiver o Z, ele converte para a hora do seu celular automaticamente
+                                    if (timeStr.includes('Z')) {
+                                        const [hours, minutes] = timeStr.replace('Z', '').split(':');
+                                        const data = new Date();
+                                        data.setUTCHours(parseInt(hours), parseInt(minutes));
+                                        return data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                                    }
+                                    return timeStr;
+                                })()}
+                    </div>
                     
                     ${isAbortado ? `
                         <div class="status-abort">❌ ENTRADA ABORTADA</div>

@@ -377,6 +377,9 @@ REGRA DE FORMATAÇÃO DO CAMPO "body":
 Para TODOS os itens dentro de "sections" (inclusive jogos abortados e Múltiplas), o campo "body" DEVE OBRIGATORIAMENTE conter estas exatas 5 tags divididas por " | ":
 [OPORTUNIDADE] texto | [TARGET] texto | [MOMENTO] texto | [CONTEXTO] texto | [CONFIDENCA] texto%
 
+⚠️ IMPORTANTE SOBRE O [TARGET]: 
+Neste campo, coloque APENAS o mercado ou o time que recebeu a aposta recomendada (ex: "Real Madrid" ou "Over 2.5"). NUNCA coloque o nome do time adversário.
+
 O JSON deve seguir EXATAMENTE esta estrutura:
 {
   "resultado": "Resumo da operação finalizado.",
@@ -384,7 +387,7 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     {
       "group": "RADAR DE VITÓRIAS",
       "title": "Nome Casa vs Nome Fora (Liga) — Horário",
-      "body": "[OPORTUNIDADE] Casa Vence | [TARGET] vs Fora | [MOMENTO] Justificativa | [CONTEXTO] Justificativa Tática | [CONFIDENCA] 85%",
+      "body": "[OPORTUNIDADE] Casa Vence | [TARGET] Nome do time ou mercado | [MOMENTO] Justificativa | [CONTEXTO] Justificativa Tática | [CONFIDENCA] 85%",
       "flag": "VERDE" 
     },
     {
@@ -392,12 +395,6 @@ O JSON deve seguir EXATAMENTE esta estrutura:
       "title": "Time A vs Time B (Liga) — Horário",
       "body": "[OPORTUNIDADE] Abortado | [TARGET] N/A | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
       "flag": "VERMELHA"
-    },
-{
-      "group": "📝 MÚLTIPLAS",
-      "title": "1️⃣ MÚLTIPLA DE ELITE (Vitórias)",
-      "body": "[OPORTUNIDADE] Casa Vence + Fora Vence | [TARGET] Odd Combinada Promissora | [MOMENTO] Cruzamento de favoritos com FLAG VERDE | [CONTEXTO] Alta probabilidade de green | [CONFIDENCA] 80%",
-      "flag": "AMARELA"
     }
   ]
 }

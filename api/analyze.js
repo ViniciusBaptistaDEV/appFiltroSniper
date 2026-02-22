@@ -214,7 +214,7 @@ export default async function handler(req, res) {
 
       console.log(`🎯 [MULTIPLA] Encontrados ${jogosElite.length} jogos de elite para o bilhete.`);
 
-      // 3. Só cria a múltipla se sobrarem 2 ou mais jogos após o filtro de 85%
+      // 3. Só cria a múltipla se sobrarem 2 ou mais jogos após o filtro de 80%
       if (jogosElite.length >= 2) {
 
         const listaConfiancas = jogosElite.map(j => {
