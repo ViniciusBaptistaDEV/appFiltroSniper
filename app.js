@@ -77,7 +77,7 @@ function renderSectionsAsCards(sections) {
         // Parse do corpo que criamos no backend
         const parts = {};
         sec.body.split(" | ").forEach(p => {
-            const m = p.match(/\[(.*?)\] (.*)/);
+            const m = p.match(/\[(.*?)\] ([\s\S]*)/);
             if (m) parts[m[1]] = m[2];
         });
 
@@ -106,9 +106,9 @@ function renderSectionsAsCards(sections) {
                         </div>
                     ` : `
                         <div class="status-success">🎯 ${parts["OPORTUNIDADE"]}</div>
-                        <div class="target-info">Alvo: ${parts["TARGET"]}</div>
+                        <div class="target-info">${flagClass === "multipla" ? "" : "Alvo"}: ${parts["TARGET"]}</div>
                         <div class="rationale-grid">
-                            <div class="rat-item"><strong>Momento:</strong> ${parts["MOMENTO"]}</div>
+                            <div class="rat-item"><strong>${flagClass === "multipla" ? "Lista" : "Momento"}:</strong> ${parts["MOMENTO"]}</div>
                             <div class="rat-item"><strong>Contexto:</strong> ${parts["CONTEXTO"]}</div>
                         </div>
                         <div class="confidence-bar-container">
