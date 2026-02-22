@@ -287,6 +287,7 @@ button:disabled {
 .rat-item {
     font-size: 0.85rem;
     color: #cbd5e1;
+    white-space: pre-wrap; /* Isso faz o navegador respeitar os pulos de linha da lista! */
 }
 
 .rat-item strong {
