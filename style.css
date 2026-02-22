@@ -168,6 +168,13 @@ button:disabled {
     /* Removemos a borda esquerda pois agora usaremos a div .card-side-badge como barra lateral */
 }
 
+/* Garante que o fundo do card permaneça escuro, sobrescrevendo as classes globais .verde/.amarela/.vermelha */
+.sniper-card.verde,
+.sniper-card.amarela,
+.sniper-card.vermelha {
+    background-color: #1e293b;
+}
+
 /* Configura as cores de fundo da BARRA LATERAL (badge) e força texto branco */
 .sniper-card.verde .card-side-badge {
     background-color: #22c55e;
