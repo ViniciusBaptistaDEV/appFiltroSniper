@@ -66,14 +66,14 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   // LÓGICA CONDICIONAL DE VERSÃO (SISTEMA FLEX INFINITO)
   // Aceita 2.5 e qualquer Gemini do 3 ao 9 automaticamente.
   const isNextGen = /gemini-(2\.5|[3-9])/.test(cleanModel) || cleanModel.includes("preview");
-  const apiVersion = (isNextGen || useSearch) ? "v1beta" : "v1"; 
+  const apiVersion = (isNextGen || useSearch) ? "v1beta" : "v1";
 
   const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${cleanModel}:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
-      temperature: 0.1, 
+      temperature: 0.1,
     }
   };
 
@@ -103,7 +103,7 @@ function safeJsonParseFromText(txt) {
     const firstBrace = txt.indexOf("{");
     const lastBrace = txt.lastIndexOf("}");
     if (firstBrace === -1 || lastBrace === -1) return null;
-    
+
     let cleanJson = txt.slice(firstBrace, lastBrace + 1);
     return JSON.parse(cleanJson);
   } catch (e) {
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
       grade = await buscarJogos(date, { limit });
       await setCache(`GRADE:${date}`, grade);
     }
-    
+
     if (!Array.isArray(grade) || grade.length === 0) {
       return res.status(200).json({
         status: "ok",
@@ -164,18 +164,18 @@ export default async function handler(req, res) {
     // ---------------------------------------------------------
     let analisePronta = await getCache(`SNIPER_V8:${date}`);
     if (!analisePronta) {
-      
+
       console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de 3 (Sniper Máximo)...`);
       const lotes = fatiarArray(grade, 6);
-      
+
       // Cria as "tarefas" para rodarem todas ao mesmo tempo (Processamento Paralelo)
       const tarefas = lotes.map(async (lote, index) => {
         // Pequeno atraso (stagger) de 1 segundo entre cada disparo para a Google não bloquear por "Spam"
         await new Promise(resolve => setTimeout(resolve, index * 1000));
-        
+
         console.log(`⏳ [GEMINI] Disparando Lote ${index + 1} de ${lotes.length}...`);
         const prompt = montarPromptSniper(date, lote);
-        
+
         try {
           const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
           const parsed = safeJsonParseFromText(geminiResponse);
@@ -190,46 +190,54 @@ export default async function handler(req, res) {
 
       // 💥 A MÁGICA ACONTECE AQUI: Espera todos os lotes terminarem ao mesmo tempo!
       const resultadosParalelos = await Promise.all(tarefas);
-      
+
       // Junta todas as respostas separadas em uma lista gigante única
       let todasAsSections = resultadosParalelos.flat();
 
-    // --- 🧠 MÁGICA DAS MÚLTIPLAS (FEITA PELO CÓDIGO) ---
-      // Limpa as múltiplas velhas
+
+      // --- 🧠 MÁGICA DAS MÚLTIPLAS (ESTILO CARD PREMIUM) ---
+      // Limpa lixos de múltiplas anteriores
       let sectionsLimpas = todasAsSections.filter(s => s && s.group !== "📝 MÚLTIPLAS" && s.group !== "RADAR DE MÚLTIPLAS");
-      
-      // Pega só a NATA (os Verdes)
+
       const jogosVerdes = sectionsLimpas.filter(s => s.flag === "VERDE");
-      
+
       if (jogosVerdes.length >= 2) {
-        // Extrai o palpite exato de cada jogo e formata no estilo profissional
+        // Formata a lista de apostas exatamente como você pediu: TIME - PALPITE
         const listaDeApostas = jogosVerdes.map(j => {
-          const confronto = j.title.split(" (")[0].toUpperCase();
-          let palpite = "";
+          const jogoNome = j.title.split(" (")[0].toUpperCase();
+          let palpite = "Confirmado";
           try {
+            // Extrai o palpite real de dentro do card verde
             palpite = j.body.split("|")[0].replace("[OPORTUNIDADE]", "").trim();
-          } catch(e) {}
-          return `${confronto} ➡️ ${palpite}`;
-        }).join("  •  "); 
+          } catch (e) { }
+          return `${jogoNome} — ${palpite}`;
+        }).join("\n\n"); // Pulo de linha duplo para organizar no card
 
         sectionsLimpas.push({
-          group: "RADAR DE MÚLTIPLAS", 
+          // USAMOS O GRUPO "RADAR DE VITÓRIAS" PARA FORÇAR O LAYOUT DE CARD
+          group: "RADAR DE VITÓRIAS",
           title: "🎫 BILHETE COMBINADO (MÚLTIPLA IA)",
-          body: `[OPORTUNIDADE] Bilhete Pronto | [TARGET] Múltipla de Elite | [MOMENTO] JOGOS DA MÚLTIPLA: ${listaDeApostas} | [CONTEXTO] Cruzamento tático inteligente de todos os palpites aprovados (Flags Verdes) nesta rodada. | [CONFIDENCA] 85%`,
-          flag: "VERDE" 
+          // PREENCHEMOS AS TAGS PARA O JS DO SITE DISTRIBUIR NOS CAMPOS:
+          body: `[OPORTUNIDADE] Multiplicação de Banca | [TARGET] Elite Sniper | [MOMENTO] ${listaDeApostas} | [CONTEXTO] Cruzamento tático dos cenários Verdes da rodada para maximizar a lucratividade. | [CONFIDENCA] 85%`,
+          flag: "MULTIPLA" // Isso fará aparecer "MULTIPLA" na lateral. Se o seu CSS tiver a cor azul para essa classe, ficará perfeito!
         });
       }
 
-      // --- 🔄 ORDENAÇÃO DE CARDS (HIERARQUIA VISUAL) ---
-      // Organiza por: 1º Verdes, 2º Amarelos, 3º Múltipla, 4º Vermelhos.
-      // Mantém a ordem cronológica original de horário dentro de cada grupo.
+      // --- 🔄 ORDENAÇÃO POR CORES (HIERARQUIA SOLICITADA) ---
+      // 1º Verdes | 2º Amarelos | 3º Múltipla | 4º Vermelhos
       sectionsLimpas.sort((a, b) => {
         const getPeso = (card) => {
-          if (card.group === "RADAR DE MÚLTIPLAS") return 3; // Múltipla em 3º lugar
-          if (card.flag === "VERDE") return 1;               // Verdes no topo
-          if (card.flag === "AMARELA") return 2;             // Amarelos logo abaixo
-          if (card.flag === "VERMELHA") return 4;            // Vermelhos no final (Lixo)
-          return 5; // Segurança para qualquer outro padrão
+          // Jogo VERDE que não seja a múltipla
+          if (card.flag === "VERDE" && card.group !== "RADAR DE VITÓRIAS" || (card.flag === "VERDE" && !card.title.includes("BILHETE"))) return 1;
+
+          if (card.flag === "AMARELA") return 2;
+
+          // A Múltipla (identificada pelo flag ou título)
+          if (card.flag === "MULTIPLA" || card.title.includes("BILHETE")) return 3;
+
+          if (card.flag === "VERMELHA") return 4;
+
+          return 5;
         };
         return getPeso(a) - getPeso(b);
       });

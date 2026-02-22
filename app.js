@@ -74,16 +74,6 @@ function renderSectionsAsCards(sections) {
     container.innerHTML = sections.map(sec => {
         const flagClass = flagToClass(sec.flag);
 
-        // Se for o card de Múltiplas, usamos um estilo diferente
-        if (sec.group.includes("MÚLTIPLAS")) {
-            return `
-                <div class="multiples-card">
-                    <div class="match-title" style="margin-bottom:15px">📝 ${sec.group}</div>
-                    <div class="multiples-body">${sec.body.replace(/\n/g, "<br>")}</div>
-                </div>
-            `;
-        }
-
         // Parse do corpo que criamos no backend
         const parts = {};
         sec.body.split(" | ").forEach(p => {
@@ -98,6 +88,7 @@ function renderSectionsAsCards(sections) {
         if (flagClass === "verde") badgeText = "VERDE";
         else if (flagClass === "amarela") badgeText = "AMARELA";
         else if (flagClass === "vermelha") badgeText = "VERMELHA";
+        else if (flagClass === "multipla") badgeText = "MÚLTIPLA";
 
         return `
             <div class="sniper-card ${flagClass}">
@@ -165,6 +156,7 @@ function flagToClass(flag) {
     if (f.includes("VERDE")) return "verde";
     if (f.includes("AMARELA")) return "amarela";
     if (f.includes("VERMELHA")) return "vermelha";
+    if (f.includes("MULTIPLA")) return "multipla";
     return "";
 }
 function emojiForGroup(group) {
