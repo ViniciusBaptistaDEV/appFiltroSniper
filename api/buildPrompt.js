@@ -73,7 +73,7 @@ O escopo permitido de análise é EXCLUSIVAMENTE:
 • Elite Europeia e Brasil: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Liga Portugal, Premiership (Escócia) e Brasileirão Série A.
 • Competições Continentais: UEFA Champions League e UEFA Europa League.
 • Copas Nacionais de Elite: FA Cup (Inglaterra), Copa del Rey (Espanha), Coppa Italia, DFB-Pokal (Alemanha) e Copa da França.
-• Ligas de Alto Investimento: Saudi Pro League (⚠️ APENAS clubes do PIF: Al-Hilal, Al-Nassr, Al-Ittihad, Al-Ahli).
+• Ligas de Alto Investimento: Saudi Pro League (⚠️ Analise a partida se PELO MENOS UM dos times for um clube do PIF: Al-Hilal, Al-Nassr, Al-Ittihad, Al-Ahli).
 • Torneios de Seleções: Copa do Mundo, Eurocopa, Copa Africana de Nações e Copa América.
 
 Regra de Exclusão Absoluta (PROIBIDO ANALISAR):
