@@ -233,7 +233,7 @@ function copiarTexto() {
         : "DATA NÃO INFORMADA";
 
     // Cabeçalho Premium
-let textoFinal = `👑✨ 📅 𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — ${dataFormatada} ✨👑\n`;
+let textoFinal = `\n📅 𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — ${dataFormatada} \n`;
 textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     cards.forEach(card => {
