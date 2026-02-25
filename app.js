@@ -213,13 +213,87 @@ window.onload = () => {
     // el.setAttribute("data-placeholder", "Escolha a data da rodada");
 };
 
-/** Copiar texto visível dos cards */
+
+
+
+/* ====== MODELO PREMIUM - BOTÃO COPIAR ANALISE ======
+/**
+ * MODO PREMIUM — Texto profissional com:
+ * ✔ Quadradinhos coloridos por flag
+ * ✔ Emoji do tipo ao lado do grupo
+ * ✔ Confiança com cor (🟢 🟡 🔴)
+ * ✔ Separador premium sem gradiente (linha limpa)
+ */
 function copiarTexto() {
-    const el = document.getElementById("resultado");
-    const texto = el.innerText || "";
+    const cards = document.querySelectorAll(".sniper-card");
+    const dateInput = document.getElementById("dateInput").value;
+
+    const dataFormatada = dateInput
+        ? dateInput.split("-").reverse().join("/")
+        : "DATA NÃO INFORMADA";
+
+    // Cabeçalho Premium
+let textoFinal = `👑✨ 📅 𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — ${dataFormatada} ✨👑\n`;
+textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    cards.forEach(card => {
+
+        // Dados básicos
+        const flag = card.querySelector(".card-side-badge")?.innerText || "";
+        const grupo = card.querySelector(".match-league")?.innerText || "";
+        const titulo = card.querySelector(".match-title")?.innerText || "";
+        const inicio = card.querySelector(".match-time")?.innerText || "";
+
+        const oportunidade = card.querySelector(".status-success")?.innerText.replace("🎯 ", "") || "Abortado";
+        const alvo = card.querySelector(".target-info")?.innerText || "";
+
+        const ratItems = card.querySelectorAll(".rat-item");
+        const momento = ratItems[0]?.innerText.replace(/^(Momento|Lista):/i, "").trim() || "";
+        const contexto = ratItems[1]?.innerText.replace(/^Contexto:/i, "").trim() || "";
+
+        let confianca = card.querySelector(".confidence-label")?.innerText.replace("Confiança:", "").trim() || "";
+
+        // Converte confiança em número e aplica o emoji correto
+        const confiancaNum = parseInt(confianca.replace("%", "").trim());
+        let confEmoji = "🟢";
+        if (confiancaNum < 70) confEmoji = "🔴";
+        else if (confiancaNum < 85) confEmoji = "🟡";
+
+        // Quadradinho colorido pela flag
+        let quadrado = "⬜";
+        if (flag.includes("VERDE")) quadrado = "🟩";
+        if (flag.includes("AMARELA")) quadrado = "🟨";
+        if (flag.includes("VERMELHA")) quadrado = "🟥";
+        if (flag.includes("MÚLTIPLA")) quadrado = "🟦";
+
+        // Emoji do tipo ao lado do grupo
+        let emojiTipo = "🎯";
+        if (grupo.toUpperCase().includes("VITÓRIAS")) emojiTipo = "🏆";
+        if (grupo.toUpperCase().includes("GOLS")) emojiTipo = "⚽";
+        if (grupo.toUpperCase().includes("AMBAS")) emojiTipo = "⚽";
+        if (grupo.toUpperCase().includes("ESCANTEIOS")) emojiTipo = "💎";
+        if (flag.includes("MÚLTIPLA")) emojiTipo = "🎫";
+        if (flag.includes("VERMELHA")) emojiTipo = "⛔";
+
+        // Bloco premium final
+        textoFinal += `${quadrado} *${emojiTipo} ${grupo}*\n`;
+        textoFinal += `*${titulo}*\n`;
+        textoFinal += `${inicio}\n`;
+        textoFinal += `🎯 *${oportunidade}*\n`;
+        textoFinal += `🎯 *${alvo}*\n\n`;
+
+        textoFinal += `📌 *Momento:* ${momento}\n`;
+        textoFinal += `📊 *Contexto:* ${contexto}\n`;
+        textoFinal += `📈 *Confiança:* ${confEmoji} ${confianca}\n`;
+
+        // 🔥 Separador Premium (sem gradiente)
+        textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    });
+
+    // Feedback no botão
     const btn = document.getElementById("btnCopiar");
 
-    navigator.clipboard.writeText(texto).then(() => {
+    navigator.clipboard.writeText(textoFinal).then(() => {
         const original = btn.innerText;
         btn.innerText = "✅ Copiado!";
         btn.style.background = "#16a34a";
@@ -227,7 +301,28 @@ function copiarTexto() {
             btn.innerText = original;
             btn.style.background = "";
         }, 3000);
-    }).catch(err => {
-        alert("Erro ao copiar: " + err);
     });
 }
+
+
+
+
+/* ====== MODELO BASE - BÁSICO SEM FORMATAÇÃO - BOTÃO COPIAR ANALISE */
+/** Copiar texto visível dos cards */
+// function copiarTexto() {
+//     const el = document.getElementById("resultado");
+//     const texto = el.innerText || "";
+//     const btn = document.getElementById("btnCopiar");
+
+//     navigator.clipboard.writeText(texto).then(() => {
+//         const original = btn.innerText;
+//         btn.innerText = "✅ Copiado!";
+//         btn.style.background = "#16a34a";
+//         setTimeout(() => {
+//             btn.innerText = original;
+//             btn.style.background = "";
+//         }, 3000);
+//     }).catch(err => {
+//         alert("Erro ao copiar: " + err);
+//     });
+// }

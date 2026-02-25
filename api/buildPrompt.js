@@ -47,6 +47,12 @@ Seja exaustivo e detalhista. Ignorar um jogo da lista fornecida é uma FALHA CR�
 1️⃣ VARREDURA OBRIGATÓRIA (REAL-TIME)
 Escopo de Dados: Utilize estatísticas exclusivamente da Temporada ${temporada}.
 
+🔎 DIRETRIZ DE BUSCA E FONTES (PESQUISA AMPLA):
+Para encontrar as estatísticas, lesões e contextos exigidos, faça buscas ativas e em tempo real na internet. 
+Você pode utilizar portais de referência (como Google, Sofascore, Flashscore, FBref, Transfermarkt, ESPN, G1, ou sites oficiais das ligas) como um excelente ponto de partida ou modelo de qualidade. 
+No entanto, NÃO SE LIMITE a eles. 
+Você tem total liberdade para varrer a web e cruzar dados de múltiplas fontes confiáveis para garantir a precisão antes de gerar o resultado final.
+
 ✅ REGRA DE VALIDAÇÃO PRÉ-JOGO (PADRÃO DE ANÁLISE)
 Como a análise é feita horas ou dias antes da partida, você NÃO DEVE exigir escalação 100% oficial (que só sai 1h antes do jogo).
 Para validar um jogo e realizar a análise tática (permitindo Flags Verdes ou Amarelas), você DEVE se basear em:

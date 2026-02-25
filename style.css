@@ -287,7 +287,8 @@ button:disabled {
 .rat-item {
     font-size: 0.85rem;
     color: #cbd5e1;
-    white-space: pre-wrap; /* Isso faz o navegador respeitar os pulos de linha da lista! */
+    white-space: pre-wrap;
+    /* Isso faz o navegador respeitar os pulos de linha da lista! */
 }
 
 .rat-item strong {
@@ -411,6 +412,31 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
    ======================================================================================== */
 @media print {
     #btnPDF {
+        display: none !important;
+    }
+}
+
+/* Abrange celulares e tablets (até 1024px) */
+@media (max-width: 1024px) {
+
+    input[type="date"],
+    button {
+        width: 100%;
+        font-size: 1.1rem;
+    }
+
+    input[type="date"] {
+        text-align: left !important;
+        display: inline-flex;
+        justify-content: flex-start;
+        /* Retira a formatação nativa bizarra de alguns navegadores de tablet */
+        -webkit-appearance: none;
+        appearance: none;
+    }
+
+    /* Remove o placeholder para não empurrar a data */
+    input[type="date"]:disabled::before,
+    input[type="date"]:valid::before {
         display: none !important;
     }
 }
