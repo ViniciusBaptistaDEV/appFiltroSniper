@@ -70,7 +70,6 @@ Escopo de Dados: Utilize estatísticas prioritariamente da Temporada ${temporada
 🔎 DIRETRIZ DE BUSCA E FONTES (PESQUISA AMPLA):
 Para encontrar as estatísticas, lesões e contextos exigidos, faça buscas ativas e em tempo real na internet.
 Use múltiplas fontes confiáveis (ex.: Sofascore, Flashscore, FBref, Transfermarkt, ESPN, GE/Globo Esporte, LANCE!, sites oficiais das ligas e clubes).
-• A análise deve citar explicitamente no [CONTEXTO] as principais fontes consultadas (ex.: “Fontes: FBref, GE, Transfermarkt”).
 
 ✅ REGRA DE VALIDAÇÃO PRÉ-JOGO (PADRÃO DE ANÁLISE)
 Como a análise é feita horas ou dias antes da partida, você NÃO DEVE exigir escalação 100% oficial (que só sai ~1h antes).
@@ -93,7 +92,7 @@ Se o aborto de mercado for necessário:
 • É PROIBIDO inferir escalações com base em temporada passada.
 • É PROIBIDO usar “time base”, “time padrão” ou “fama do elenco” sem pesquisar os desfalques reais da semana.
 • Sem notícias válidas da semana do jogo = SEM ANÁLISE de vitória seca.
-• É PROIBIDO gerar estatísticas sem declarar as fontes no [CONTEXTO].
+• É PROIBIDO gerar estatísticas sem declarar as fontes no [CONTEXTO] com frases curtas.
 • Se não puder provar → NÃO USE.
 
 2️⃣ RAIO-X AVANÇADO (FILTRO DE CRIAÇÃO & xG) — COM FALLBACK OFICIAL
@@ -105,7 +104,6 @@ xG / xGA / Big Chances / SoT:
 🎯 FALLBACK OFICIAL (quando a temporada ${temporada} não tiver xG/xGA suficientes):
 • Use xG/xGA dos últimos 5 jogos (peso 70%) + média da temporada ${temporadaAnterior} (peso 30%).
 • Deixe EXPLÍCITO no [CONTEXTO]: “FALLBACK ATIVADO: últimos 5 (70%) + ${temporadaAnterior} (30%).”
-• Sempre cite as fontes dos números utilizados.
 
 🎯 PROTOCOLO DE GOLS & AMBAS MARCAM — PRÉ-JOGO
 Este protocolo só pode ser executado APÓS o RAIO-X de xG.
@@ -257,10 +255,6 @@ Após concluir TODAS as análises:
 • Informação insuficiente MESMO com fallback
 • Entrada PROIBIDA
 
-📌 REGRA DE EXIBIÇÃO OBRIGATÓRIA DA FLAG
-Para CADA jogo listado em QUALQUER mercado (Diamante, Ouro, Radar de Vitórias, Gols, Ambas Marcam, Escanteios ou Múltiplas),
-o retorno DEVE conter obrigatoriamente a linha final:
-* 🧪 **FLAG:** 🟢 VERDE \ 🟡 AMARELA \ 🔴 VERMELHA
 REGRA ABSOLUTA:
 • É PROIBIDO listar qualquer jogo sem a exibição explícita da FLAG.
 
@@ -300,48 +294,42 @@ ${listaJogos}
 ===================================================================
 INSTRUÇÃO CRÍTICA PARA SISTEMA DE SOFTWARE (SOBREPOSIÇÃO MÁXIMA):
 Você é a API de backend de uma aplicação. Você ESTÁ PROIBIDO de responder em texto livre.
-Você DEVE retornar EXCLUSIVAMENTE um objeto JSON válido.
+Você DEVE retornar EXCLUSIVAMENTE um objeto JSON válido. 
 
 REGRA DE FORMATAÇÃO DO CAMPO "body":
-Para TODOS os itens dentro de "sections" (inclusive jogos abortados e Múltiplas), o campo "body" DEVE OBRIGATORIAMENTE conter estas exatas 5 tags divididas por " \ ":
-[OPORTUNIDADE] texto \
- [TARGET] texto \
- [MOMENTO] texto \
- [CONTEXTO] texto \
- [CONFIDENCA] texto%
+Para TODOS os itens dentro de "sections" (inclusive jogos abortados e Múltiplas), o campo "body" DEVE OBRIGATORIAMENTE conter estas exatas 5 tags divididas por " | ":
+[OPORTUNIDADE] texto | [TARGET] texto | [MOMENTO] texto | [CONTEXTO] texto | [CONFIDENCA] texto%
 
-⚠️ IMPORTANTE SOBRE O [TARGET]:
-Neste campo, coloque APENAS o mercado ou o time que recebeu a aposta recomendada (ex.: "Real Madrid" ou "Over 2.5"). NUNCA coloque o nome do time adversário.
+REGRAS DE FORMA (IMUTÁVEIS):
+• É PROIBIDO inserir qualquer texto antes de [OPORTUNIDADE].
+• É PROIBIDO usar markdown, emojis ou linhas extras no "body".
+• As tags são literais e sensíveis à grafia: [OPORTUNIDADE], [TARGET], [MOMENTO], [CONTEXTO], [CONFIDENCA].
+• Se faltar um dado, mantenha a tag e escreva "Indisponível".
+
+⚠️ IMPORTANTE SOBRE O [TARGET]: 
+Neste campo, coloque APENAS o mercado ou o time que recebeu a aposta recomendada (ex: "Real Madrid" ou "Over 2.5"). NUNCA coloque o nome do time adversário.
 
 O JSON deve seguir EXATAMENTE esta estrutura:
 {
- "resultado": "Resumo da operação finalizado.",
- "sections": [
-  {
-   "group": "RADAR DE VITÓRIAS",
-   "title": "Nome Casa vs Nome Fora (Liga) — Horário",
-   "body": "[OPORTUNIDADE] Casa Vence \
- [TARGET] Nome do time ou mercado \
- [MOMENTO] Justificativa \
- [CONTEXTO] Justificativa Tática (citar fontes e, se aplicável, 'FALLBACK ATIVADO: últimos 5 (70%) + ${temporadaAnterior} (30%)') \
- [CONFIDENCA] 85%",
-   "flag": "VERDE"
-  },
-  {
-   "group": "JOGOS ABORTADOS",
-   "title": "Time A vs Time B (Liga) — Horário",
-   "body": "[OPORTUNIDADE] Abortado \
- [TARGET] N/A \
- [MOMENTO] Liga fora do escopo / Dados vazios / Jogo adiado \
- [CONTEXTO] Bloqueio de segurança (explique o motivo exato) \
- [CONFIDENCA] 0%",
-   "flag": "VERMELHA"
-  }
- ]
+  "resultado": "Resumo da operação finalizado.",
+  "sections": [
+    {
+      "group": "RADAR DE VITÓRIAS",
+      "title": "Nome Casa vs Nome Fora (Liga) — Horário",
+      "body": "[OPORTUNIDADE] Casa Vence | [TARGET] Nome do time ou mercado | [MOMENTO] Justificativa | [CONTEXTO] Justificativa Tática | [CONFIDENCA] 85%",
+      "flag": "VERDE" 
+    },
+    {
+      "group": "JOGOS ABORTADOS",
+      "title": "Time A vs Time B (Liga) — Horário",
+      "body": "[OPORTUNIDADE] Abortado | [TARGET] Indisponível | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
+      "flag": "VERMELHA"
+    }
+  ]
 }
 
 A chave "flag" só pode conter: "VERDE", "AMARELA" ou "VERMELHA".
+NÃO escreva “FLAG” como texto no body; a bandeira é definida exclusivamente pela chave "flag".
 
 Retorne o JSON agora:
 `;
-}
