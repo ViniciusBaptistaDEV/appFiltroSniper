@@ -511,3 +511,43 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 #btnPDF {
     margin-bottom: 20px;
 }
+
+/* =========================
+   DESKTOP / NOTEBOOK ONLY
+   ========================= */
+@media (min-width: 1025px) {
+  /* 1) Container mais largo */
+  .container {
+    max-width: 1280px;   /* antes: 900px */
+  }
+
+  /* 2) Cards em grid de 2 colunas */
+  #resultado {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px; /* já tinha gap nos cards em coluna; aqui padronizamos no grid */
+  }
+
+  /* 3) Cards mais retangulares (horizontais) */
+  .sniper-card {
+    min-height: 160px;   /* dá uma “deitada” suave no card */
+    align-items: stretch;
+  }
+
+  /* 4) Badge lateral um pouco mais larga para não parecer fina no layout expandido */
+  .card-side-badge {
+    width: 48px; /* antes: 40px */
+  }
+
+  /* 5) Um pouco mais de respiro no conteúdo principal do card */
+  .card-main {
+    padding: 24px; /* antes: 20px */
+  }
+}
+
+/* Opcional: em telas super largas, abrir um pouco mais o container */
+@media (min-width: 1536px) {
+  .container {
+    max-width: 1400px;
+  }
+}
