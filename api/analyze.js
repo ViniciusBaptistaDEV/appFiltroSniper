@@ -100,11 +100,20 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
 
 function safeJsonParseFromText(txt) {
   try {
-    const firstBrace = txt.indexOf("{");
-    const lastBrace = txt.lastIndexOf("}");
-    if (firstBrace === -1 || lastBrace === -1) return null;
+    // 1. O ASPIRADOR: Remove os lixos de markdown (```json) que o Gemini adora colocar
+    let textoLimpo = txt.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-    let cleanJson = txt.slice(firstBrace, lastBrace + 1);
+    // 2. Encontra a primeira e a última chave
+    const firstBrace = textoLimpo.indexOf("{");
+    const lastBrace = textoLimpo.lastIndexOf("}");
+    
+    if (firstBrace === -1 || lastBrace === -1) {
+      console.error("🚨 JSON não encontrado na resposta do Gemini.");
+      return null;
+    }
+
+    // 3. Corta o texto EXATAMENTE onde precisa e faz o parse
+    let cleanJson = textoLimpo.slice(firstBrace, lastBrace + 1);
     return JSON.parse(cleanJson);
   } catch (e) {
     console.error("🚨 ERRO NO PARSE:", e.message);
@@ -165,8 +174,9 @@ export default async function handler(req, res) {
     let analisePronta = await getCache(`SNIPER_V8:${date}`);
     if (!analisePronta) {
 
-      console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de 3 (Sniper Máximo)...`);
-      const lotes = fatiarArray(grade, 6);
+      const tamanhoLote = 6;
+      console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de ${tamanhoLote} jogos cada...`);
+      const lotes = fatiarArray(grade, tamanhoLote);
 
       // Cria as "tarefas" para rodarem todas ao mesmo tempo (Processamento Paralelo)
       const tarefas = lotes.map(async (lote, index) => {
@@ -209,7 +219,7 @@ export default async function handler(req, res) {
         const match = s.body.match(/\[CONFIDENCA\] (\d+)%/);
         const valorConfianca = match ? parseInt(match[1]) : 0;
 
-        return valorConfianca >= 80;
+        return valorConfianca >= 85; // Filtra apenas os jogos com confiança de 85% ou mais
       });
 
       console.log(`🎯 [MULTIPLA] Encontrados ${jogosElite.length} jogos de elite para o bilhete.`);
