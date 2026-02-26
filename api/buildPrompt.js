@@ -309,6 +309,17 @@ REGRAS DE FORMA (IMUTÁVEIS):
 ⚠️ IMPORTANTE SOBRE O [TARGET]: 
 Neste campo, coloque APENAS o mercado ou o time que recebeu a aposta recomendada (ex: "Real Madrid" ou "Over 2.5"). NUNCA coloque o nome do time adversário.
 
+📌 REGRA DE GRUPO:
+Defina o campo "group" conforme o mercado do card:
+• Vitória / Dupla Chance → "🏆 RADAR DE VITÓRIAS"
+• Mercado de Gols (Over/Under) → "⚽ MERCADO DE GOLS"
+• Ambas Marcam → "⚽ AMBAS MARCAM"
+• Escanteios → "💎 ANÁLISE DE ESCANTEIOS"
+• Múltipla → "🎫 BILHETE COMBINADO"
+• Jogos Abortados → "⛔ JOGOS ABORTADOS"
+
+É proibido rotular Over/Under, BTTS ou Escanteios como RADAR DE VITÓRIAS.
+
 O JSON deve seguir EXATAMENTE esta estrutura:
 {
   "resultado": "Resumo da operação finalizado.",

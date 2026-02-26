@@ -204,6 +204,24 @@ export default async function handler(req, res) {
       // Junta todas as respostas separadas em uma lista gigante única
       let todasAsSections = resultadosParalelos.flat();
 
+// --- Classificador automático de grupo (corrige Over/BTTS que viram RADAR)
+function classificarGrupoDoCard(card) {
+  const body = (card?.body || "").toLowerCase();
+
+  if (body.includes("escanteios")) return "💎 ANÁLISE DE ESCANTEIOS";
+  if (body.includes("ambas marcam") || body.includes("btts")) return "⚽ AMBAS MARCAM";
+  if (body.includes("over") || body.includes("under") || body.includes("gols")) return "⚽ MERCADO DE GOLS";
+  if (card.flag === "MULTIPLA" || /bilhete/i.test(card.title || "")) return "🎫 BILHETE COMBINADO";
+  if (body.includes("abortado") || body.includes("bloqueado")) return "⛔ JOGOS ABORTADOS";
+
+  return "🏆 RADAR DE VITÓRIAS";
+}
+
+// --- Aplicar classificacao se o LLM mandar group errado
+todasAsSections = todasAsSections.map(s => ({
+  ...s,
+  group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
+}));
 
       // --- 🧠 MÁGICA DAS MÚLTIPLAS (FILTRO DE ELITE 80%+) ---
       // 1. Limpa lixos de múltiplas anteriores
