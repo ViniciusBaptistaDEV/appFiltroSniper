@@ -332,5 +332,5 @@ A chave "flag" só pode conter: "VERDE", "AMARELA" ou "VERMELHA".
 NÃO escreva “FLAG” como texto no body; a bandeira é definida exclusivamente pela chave "flag".
 
 Retorne o JSON agora:
-`
-};
+`;
+}
