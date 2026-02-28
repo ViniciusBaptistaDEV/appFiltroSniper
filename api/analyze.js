@@ -137,14 +137,16 @@ function fatiarArray(array, tamanho) {
 // ATENÇÃO: Aumenta o tempo limite da Vercel para permitir processamento longo (até 60 segundos)
 export const maxDuration = 60;
 
+
+
 /* ========================================================================================
-* HANDLER PRINCIPAL (O MAESTRO DO SISTEMA)
+    HANDLER PRINCIPAL (O MAESTRO DO SISTEMA)
 * ====================================================================================== */
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed. Use POST." });
 
-  const { date, limit, checkCacheOnly } = req.body || {};
+  const { date, limit, checkCacheOnly, checkProgress } = req.body || {};
   if (!date) return res.status(400).json({ error: "Parâmetro 'date' é obrigatório (YYYY-MM-DD)." });
 
   try {
@@ -173,14 +175,25 @@ export default async function handler(req, res) {
     }
     // =========================================================================
 
+    // =========================================================================
+    // 🕵️‍♂️ ROTA ESPIÃ: APENAS LER A % DE PROGRESSO
+    // =========================================================================
+    if (checkProgress) {
+      const progressoAtual = await getCache(`PROGRESS:${date}`);
+      return res.status(200).json({ progress: progressoAtual || 0 });
+    }
+
     // ---------------------------------------------------------
     // ETAPA 1: Buscar a lista de jogos da ESPN (Grade Mestra)
     // ---------------------------------------------------------
+    await setCache(`PROGRESS:${date}`, 10); // 10% - Iniciou busca ESPN
     let grade = await getCache(`GRADE:${date}`);
     if (!grade) {
       grade = await buscarJogos(date, { limit });
       await setCache(`GRADE:${date}`, grade);
     }
+
+    await setCache(`PROGRESS:${date}`, 25); // 25% - Grade carregada
 
     if (!Array.isArray(grade) || grade.length === 0) {
       return res.status(200).json({
@@ -197,19 +210,21 @@ export default async function handler(req, res) {
     // ETAPA 2: Acionar o Motor de Inteligência Analítica em PARALELO
     // ---------------------------------------------------------
     let analisePronta = await getCache(`SNIPER_V12:${date}`);
-    if (!analisePronta) {
 
+    if (!analisePronta) {
       const tamanhoLote = 6;
-      console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de ${tamanhoLote} jogos cada...`);
       const lotes = fatiarArray(grade, tamanhoLote);
+      let lotesConcluidos = 0;
+
+      console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de ${tamanhoLote} jogos cada...`);
 
       // Cria as "tarefas" para rodarem todas ao mesmo tempo (Processamento Paralelo)
       const tarefas = lotes.map(async (lote, index) => {
-        // Pequeno atraso (stagger) de 1 segundo entre cada disparo para a Google não bloquear por "Spam"
-        await new Promise(resolve => setTimeout(resolve, index * 1000));
+        // Pequeno atraso (stagger) de 1,5 segundo entre cada disparo para a Google não bloquear por "Spam"
+        await new Promise(resolve => setTimeout(resolve, index * 1500));
+        const prompt = montarPromptSniper(date, lote);
 
         console.log(`⏳ [GEMINI] Disparando Lote ${index + 1} de ${lotes.length}...`);
-        const prompt = montarPromptSniper(date, lote);
 
         try {
           const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
@@ -219,12 +234,19 @@ export default async function handler(req, res) {
           }
         } catch (err) {
           console.error(`🚨 Erro no Lote ${index + 1}:`, err.message);
+        } finally {
+          // 🔥 ATUALIZA O PROGRESSO REAL A CADA LOTE FINALIZADO
+          lotesConcluidos++;
+          const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
+          await setCache(`PROGRESS:${date}`, porcentagem);
         }
         return []; // Se um lote der erro, retorna vazio para não quebrar os outros
       });
+      
 
       // 💥 A MÁGICA ACONTECE AQUI: Espera todos os lotes terminarem ao mesmo tempo!
       const resultadosParalelos = await Promise.all(tarefas);
+      await setCache(`PROGRESS:${date}`, 98); // 98% - Processando múltiplas e filtros finais
 
       // Junta todas as respostas separadas em uma lista gigante única
       let todasAsSections = resultadosParalelos.flat();

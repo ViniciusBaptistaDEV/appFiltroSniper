@@ -14,21 +14,72 @@ async function analisar() {
     const loading = document.getElementById("loading");
     const resultCard = document.getElementById("resultCard");
     const resultado = document.getElementById("resultado");
+    const progressText = document.getElementById("progressText");
 
-    // Estado de carregamento
+    // Estado de carregamento inicial
     btn.disabled = true;
     dateEl.disabled = true;
     btnText.textContent = "Analisando...";
     loading.classList.remove("hidden");
     resultCard.classList.add("hidden");
     resultado.innerHTML = "";
+    if (progressText) progressText.textContent = "1%";
+    btnText.textContent = "Analisando...";
+
+    // Variáveis de controle do progresso suave
+    let displayPercent = 0;
+    let targetPercent = 1;
+    let isFinished = false; // Chave para saber se o servidor já respondeu
 
     // 🔥 ESCONDE O CRONÔMETRO DURANTE A ANÁLISE PARA NÃO POLUIR A TELA
     if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
     document.getElementById("timerContainer").style.display = "none";
 
+
+    // 🕵️‍♂️ ESPPIÃO DE PROGRESSO (Polling do Redis)
+    let progressInterval = setInterval(async () => {
+        if (isFinished) return; // Se já acabou, para de perguntar
+        try {
+            const res = await fetch("/api/analyze", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ date, checkProgress: true })
+            });
+            const d = await res.json();
+
+            // Se o backend devolver um número maior que zero, atualiza a tela
+            if (d.progress > targetPercent) targetPercent = d.progress;
+        } catch (e) { }
+    }, 1500); // Consulta a cada 1.5s para ser mais ágil
+
+    // 🚀 MOTOR DE ANIMAÇÃO (Faz o número subir de 1 em 1 para ser suave)
+    let animationInterval = setInterval(() => {
+        // Regra 1: Se a resposta já chegou, sobe muito rápido (2% por vez)
+        if (isFinished) {
+            displayPercent += 5;
+        }
+
+        // Regra 2: Se o display está atrás do alvo, sobe rápido (1% por vez)
+        else if (displayPercent < targetPercent) {
+            displayPercent += 1;
+        }
+
+        // Regra 3: Se o alvo parou (ex: 25% esperando a IA), o display continua subindo 
+        // Se está esperando (Falso progresso), sobe bem devagar
+        else if (displayPercent < 99) {
+            if (Math.random() > 0.8) displayPercent += 1;
+        }
+
+        // Limita em 100
+        if (displayPercent > 100) displayPercent = 100;
+
+        // Atualiza UI
+        if (progressText) progressText.textContent = `${displayPercent}%`;
+
+    }, 100); // Velocidade da subida (100ms = bem fluido)
+
     try {
-        // Chamada simples; backend decide usar cache válido (<10min) ou recalcular
+        // Chamada simples (A PRINCIPAL QUE RODA A IA PESADA)
         const response = await fetch("/api/analyze", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -36,8 +87,30 @@ async function analisar() {
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
         const data = await response.json();
+
+        // 🏁 O servidor respondeu (Cache ou Novo)
+        isFinished = true;
+        targetPercent = 100;
+        clearInterval(progressInterval);
+
+        // 🛡️ TRAVA DE SEGURANÇA: Espera a animação visual chegar em 100%
+        // Isso evita o pulo. O código fica "preso" aqui até o número subir.
+        while (displayPercent < 100) {
+            await new Promise(res => setTimeout(res, 50));
+        }
+
+        // ✅ ANÁLISE CONCLUÍDA: Limpa os intervalos e mostra 100%
+        clearInterval(progressInterval);
+        clearInterval(animationInterval);
+
+        // Crava 100% na tela
+        displayPercent = 100;
+        if (progressText) progressText.textContent = "100%";
+
+        // 🕒 DELAY ESTRATÉGICO
+        // 🕒 AGUARDA 2 SEGUNDOS (Para o usuário ver o 100% e respirar)
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         // 🔥 ATUALIZA O CRONÔMETRO COM O TEMPO QUE VEIO DA IA
         atualizarDisplayCronometro(data.expiresAt);
@@ -57,6 +130,9 @@ async function analisar() {
         resultCard.classList.remove("hidden");
 
     } catch (error) {
+        // Limpa intervalos em caso de erro
+        clearInterval(progressInterval);
+        clearInterval(animationInterval);
         console.error(error);
         document.getElementById("resultado").innerHTML = `
         <div class="analysis-card" style="border-left-color:#dc2626">

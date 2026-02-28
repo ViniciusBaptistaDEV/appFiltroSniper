@@ -36,8 +36,17 @@
         </div>
 
         <!-- Loading -->
-        <div id="loading" class="hidden">
-            <div class="spinner"></div>
+        <div id="loading" class="hidden" style="text-align: center;">
+            <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 20px auto;">
+                <div class="spinner" style="width: 100%; height: 100%; border-radius: 50%; box-sizing: border-box;">
+                </div>
+
+                <div id="progressText" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+                    display: flex; justify-content: center; align-items: center; 
+                    font-weight: 800; font-size: 1.1em; color: #10b981; pointer-events: none;">
+                    1%
+                </div>
+            </div>
             <p>
                 Estamos analisando todos os jogos do dia selecionado.<br />
                 <span class="loading-subtext">Isto pode demorar alguns segundos...</span>
