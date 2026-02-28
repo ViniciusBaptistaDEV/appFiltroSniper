@@ -150,15 +150,17 @@ PERMITIR UNDER 2.5 APENAS SE:
 • Time forte vs time totalmente inofensivo
 
 ⚽ MERCADO AMBAS MARCAM (BTTS)
-PERMITIR APENAS SE:
-• Ambos têm xG ≥ 1.00
-• Ambos sofreram gols em ≥ 4 dos últimos 6 jogos
-• Nenhum time tem clean sheets frequentes
-• Não há disparidade técnica extrema
-❌ BLOQUEAR BTTS se:
-• Um time tem xGA muito baixo
-• Um time depende de um único criador
-• Perfil de controle + posse estéril
+🚨 REGRA DE SEGURANÇA (CALIBRAGEM DE PRECISÃO):
+Para liberar o BTTS (Sim), a balança entre ataque e defesa deve estar perfeitamente desequilibrada em favor dos ataques.
+• xG Combinado (Soma dos dois times) deve ser ≥ 2.40.
+• xG Individual de CADA time deve ser ≥ 1.15 (Para evitar o risco do 1-0).
+• Poder de Fogo: Ambos marcaram gols em pelo menos 4 dos últimos 6 jogos.
+• Defesa Vazada: Ambos sofreram gols em pelo menos 4 dos últimos 6 jogos.
+❌ BLOQUEAR BTTS (MESMO COM XG ALTO) SE:
+• Um dos times tiver taxa de Clean Sheets (jogos sem sofrer gols) > 40% na temporada.
+• Disparidade técnica for muito grande (ex: um time com xG 1.50 contra outro com xG 0.80).
+• Histórico H2H: Se 3 dos últimos 4 confrontos diretos foram "Ambas Não".
+• Perfil de controle: Time que retém a bola (posse > 60%) mas finaliza pouco.
 • Histórico recente de 1–0 / 2–0 recorrentes
 • Mandante vence sem sofrer gol com alta taxa
 
