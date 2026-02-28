@@ -23,6 +23,10 @@ async function analisar() {
     resultCard.classList.add("hidden");
     resultado.innerHTML = "";
 
+    // 🔥 ESCONDE O CRONÔMETRO DURANTE A ANÁLISE PARA NÃO POLUIR A TELA
+    if (typeof timerInterval !== 'undefined') clearInterval(timerInterval);
+    document.getElementById("timerContainer").style.display = "none";
+
     try {
         // Chamada simples; backend decide usar cache válido (<10min) ou recalcular
         const response = await fetch("/api/analyze", {
@@ -34,6 +38,9 @@ async function analisar() {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
+
+        // 🔥 ATUALIZA O CRONÔMETRO COM O TEMPO QUE VEIO DA IA
+        atualizarDisplayCronometro(data.expiresAt);
 
         // Preferência: sections estruturadas (novo formato)
         if (Array.isArray(data.sections) && data.sections.length > 0) {
@@ -52,12 +59,12 @@ async function analisar() {
     } catch (error) {
         console.error(error);
         document.getElementById("resultado").innerHTML = `
-      <div class="analysis-card" style="border-left-color:#dc2626">
-        <strong>❌ Erro na comunicação</strong>
-        <div style="margin-top:8px;color:#94a3b8">
-          Tente novamente em instantes.
+        <div class="analysis-card" style="border-left-color:#dc2626">
+            <strong>❌ Erro na comunicação</strong>
+            <div style="margin-top:8px;color:#94a3b8">
+            Tente novamente em instantes.
         </div>
-      </div>
+        </div>
     `;
         resultCard.classList.remove("hidden");
     } finally {
@@ -98,34 +105,34 @@ function renderSectionsAsCards(sections) {
                     <div class="match-title">${sec.title.split(' — ')[0]}</div>
                     <div class="match-time">
                         ${flagClass === "multipla" ? "" : (() => {
-                                    const titleParts = sec.title.split(' — ');
-                                    const timeStr = titleParts[1]; // Pega a parte do horário
+                const titleParts = sec.title.split(' — ');
+                const timeStr = titleParts[1]; // Pega a parte do horário
 
-                                    if (!timeStr) return '🕒 Início: --:--';
+                if (!timeStr) return '🕒 Início: --:--';
 
-                                    // Captura os números da hora e minuto, independente de ter Z ou UTC
-                                    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+                // Captura os números da hora e minuto, independente de ter Z ou UTC
+                const match = timeStr.match(/(\d{1,2}):(\d{2})/);
 
-                                    if (match) {
-                                        const horasUTC = parseInt(match[1], 10);
-                                        const minutosUTC = parseInt(match[2], 10);
+                if (match) {
+                    const horasUTC = parseInt(match[1], 10);
+                    const minutosUTC = parseInt(match[2], 10);
 
-                                        const data = new Date();
-                                        // Define a hora em UTC (Horário Mundial)
-                                        data.setUTCHours(horasUTC, minutosUTC, 0, 0);
+                    const data = new Date();
+                    // Define a hora em UTC (Horário Mundial)
+                    data.setUTCHours(horasUTC, minutosUTC, 0, 0);
 
-                                        // Converte automaticamente para o fuso do seu celular (Brasília)
-                                        const horaLocal = data.toLocaleTimeString('pt-BR', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            hour12: false
-                                        });
+                    // Converte automaticamente para o fuso do seu celular (Brasília)
+                    const horaLocal = data.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                    });
 
-                                        return `🕒 Início: ${horaLocal}`;
-                                    }
+                    return `🕒 Início: ${horaLocal}`;
+                }
 
-                                    return `🕒 Início: ${timeStr.replace('Z', '').replace('UTC', '')}`;
-                                })()}
+                return `🕒 Início: ${timeStr.replace('Z', '').replace('UTC', '')}`;
+            })()}
                     </div>
                     
                     ${isAbortado ? `
@@ -205,16 +212,6 @@ function escapeHtml(str) {
         .replace(/>/g, "&gt;");
 }
 
-/** Preenche a data com "hoje" ao carregar */
-window.onload = () => {
-    const hoje = new Date().toISOString().split('T')[0];
-    const el = document.getElementById('dateInput');
-    el.value = hoje;
-    // el.setAttribute("data-placeholder", "Escolha a data da rodada");
-};
-
-
-
 
 /* ====== MODELO PREMIUM - BOTÃO COPIAR ANALISE ======
 /**
@@ -233,8 +230,8 @@ function copiarTexto() {
         : "DATA NÃO INFORMADA";
 
     // Cabeçalho Premium
-let textoFinal = `\n📅 𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — ${dataFormatada} \n`;
-textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    let textoFinal = `\n📅 𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — ${dataFormatada} \n`;
+    textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     cards.forEach(card => {
 
@@ -304,25 +301,96 @@ textoFinal += `━━━━━━━━━━━━━━━━━━━━━�
     });
 }
 
+/* =========================================================
+    FUNÇÕES DO CRONÔMETRO MINIMALISTA E COMUNICAÇÃO COM REDIS
+   ========================================================= */
+let timerInterval;
+
+function atualizarDisplayCronometro(tempoExpiracao) {
+    clearInterval(timerInterval);
+    const container = document.getElementById('timerContainer');
+    const display = document.getElementById('countdownTimer');
+
+    // Se não tiver tempo ou já tiver vencido
+    if (!tempoExpiracao || tempoExpiracao <= Date.now()) {
+        container.style.display = 'block';
+        display.innerHTML = "Nova Análise Liberada";
+        display.style.color = "#10b981"; // Verde esmeralda elegante
+        return;
+    }
+
+    container.style.display = 'block';
+
+    timerInterval = setInterval(() => {
+        const agora = Date.now();
+        const distancia = tempoExpiracao - agora;
+
+        if (distancia <= 0) {
+            clearInterval(timerInterval);
+            display.innerHTML = "Nova Análise Liberada";
+            display.style.color = "#10b981";
+            return;
+        }
+
+        const horas = Math.floor((distancia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutos = Math.floor((distancia % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((distancia % (1000 * 60)) / 1000);
+
+        display.innerHTML =
+            String(horas).padStart(2, '0') + ":" +
+            String(minutos).padStart(2, '0') + ":" +
+            String(segundos).padStart(2, '0');
+
+        display.style.color = "#10b981"; // Verde esmeralda elegante
+    }, 1000);
+}
+
+// Pergunta ao Redis (Backend) quanto tempo falta para o cache expirar
+async function verificarCacheRedis(dataSelecionada) {
+    const container = document.getElementById('timerContainer');
+    const display = document.getElementById('countdownTimer');
+
+    container.style.display = 'block';
+    display.innerHTML = "Sincronizando...";
+    display.style.color = "#10b981";
+    clearInterval(timerInterval);
+
+    try {
+        const response = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ date: dataSelecionada, checkCacheOnly: true })
+        });
+
+        const data = await response.json();
+
+        if (data.expiresAt) {
+            atualizarDisplayCronometro(data.expiresAt);
+        } else {
+            display.innerHTML = "Nova Análise Liberada";
+            display.style.color = "#10b981";
+        }
+    } catch (error) {
+        display.innerHTML = "Sistema Pronto";
+    }
+}
 
 
+/* =========================================================
+    QUANDO CARREGAR A TELA ACONTECE ISSO AQUI EMBAIXO
+   ========================================================= */
 
-/* ====== MODELO BASE - BÁSICO SEM FORMATAÇÃO - BOTÃO COPIAR ANALISE */
-/** Copiar texto visível dos cards */
-// function copiarTexto() {
-//     const el = document.getElementById("resultado");
-//     const texto = el.innerText || "";
-//     const btn = document.getElementById("btnCopiar");
+/** Preenche a data com "hoje" ao carregar */
+window.onload = () => {
+    const hoje = new Date().toISOString().split('T')[0];
+    const el = document.getElementById('dateInput');
+    el.value = hoje;
 
-//     navigator.clipboard.writeText(texto).then(() => {
-//         const original = btn.innerText;
-//         btn.innerText = "✅ Copiado!";
-//         btn.style.background = "#16a34a";
-//         setTimeout(() => {
-//             btn.innerText = original;
-//             btn.style.background = "";
-//         }, 3000);
-//     }).catch(err => {
-//         alert("Erro ao copiar: " + err);
-//     });
-// }
+    // Verifica o cache diretamente no Redis logo ao abrir a página
+    verificarCacheRedis(hoje);
+
+    // Se você escolher outra data no calendário, ele pergunta pro Redis de novo
+    el.addEventListener('change', (e) => {
+        verificarCacheRedis(e.target.value);
+    });
+};

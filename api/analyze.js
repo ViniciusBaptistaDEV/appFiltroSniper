@@ -106,7 +106,7 @@ function safeJsonParseFromText(txt) {
     // 2. Encontra a primeira e a última chave
     const firstBrace = textoLimpo.indexOf("{");
     const lastBrace = textoLimpo.lastIndexOf("}");
-    
+
     if (firstBrace === -1 || lastBrace === -1) {
       console.error("🚨 JSON não encontrado na resposta do Gemini.");
       return null;
@@ -144,10 +144,35 @@ export const maxDuration = 60;
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed. Use POST." });
 
-  const { date, limit } = req.body || {};
+  const { date, limit, checkCacheOnly } = req.body || {};
   if (!date) return res.status(400).json({ error: "Parâmetro 'date' é obrigatório (YYYY-MM-DD)." });
 
   try {
+
+    // =========================================================================
+    // 🕵️‍♂️ ROTA EXPRESSA: APENAS VERIFICAR O CRONÔMETRO DO REDIS
+    // =========================================================================
+    if (checkCacheOnly) {
+      if (!REDIS_URL || !REDIS_TOKEN) return res.status(200).json({ expiresAt: null });
+
+      // ALERTA: Aqui usamos a mesma chave exata do cache!
+      const cacheKey = `SNIPER_V12:${date}`;
+
+      const resTtl = await fetch(`${REDIS_URL}/ttl/${cacheKey}`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+      });
+      const dataTtl = await resTtl.json();
+
+      // Se o result for maior que 0, são os segundos que faltam para o cache morrer
+      if (dataTtl.result && dataTtl.result > 0) {
+        const expiresAt = Date.now() + (dataTtl.result * 1000);
+        return res.status(200).json({ status: "cached", expiresAt });
+      } else {
+        return res.status(200).json({ status: "nocache", expiresAt: null });
+      }
+    }
+    // =========================================================================
+
     // ---------------------------------------------------------
     // ETAPA 1: Buscar a lista de jogos da ESPN (Grade Mestra)
     // ---------------------------------------------------------
@@ -171,7 +196,7 @@ export default async function handler(req, res) {
     // ---------------------------------------------------------
     // ETAPA 2: Acionar o Motor de Inteligência Analítica em PARALELO
     // ---------------------------------------------------------
-    let analisePronta = await getCache(`SNIPER_V8:${date}`);
+    let analisePronta = await getCache(`SNIPER_V12:${date}`);
     if (!analisePronta) {
 
       const tamanhoLote = 6;
@@ -204,24 +229,24 @@ export default async function handler(req, res) {
       // Junta todas as respostas separadas em uma lista gigante única
       let todasAsSections = resultadosParalelos.flat();
 
-// --- Classificador automático de grupo (corrige Over/BTTS que viram RADAR)
-function classificarGrupoDoCard(card) {
-  const body = (card?.body || "").toLowerCase();
+      // --- Classificador automático de grupo (corrige Over/BTTS que viram RADAR)
+      function classificarGrupoDoCard(card) {
+        const body = (card?.body || "").toLowerCase();
 
-  if (body.includes("escanteios")) return "💎 ANÁLISE DE ESCANTEIOS";
-  if (body.includes("ambas marcam") || body.includes("btts")) return "⚽ AMBAS MARCAM";
-  if (body.includes("over") || body.includes("under") || body.includes("gols")) return "⚽ MERCADO DE GOLS";
-  if (card.flag === "MULTIPLA" || /bilhete/i.test(card.title || "")) return "🎫 BILHETE COMBINADO";
-  if (body.includes("abortado") || body.includes("bloqueado")) return "⛔ JOGOS ABORTADOS";
+        if (body.includes("escanteios")) return "💎 ANÁLISE DE ESCANTEIOS";
+        if (body.includes("ambas marcam") || body.includes("btts")) return "⚽ AMBAS MARCAM";
+        if (body.includes("over") || body.includes("under") || body.includes("gols")) return "⚽ MERCADO DE GOLS";
+        if (card.flag === "MULTIPLA" || /bilhete/i.test(card.title || "")) return "🎫 BILHETE COMBINADO";
+        if (body.includes("abortado") || body.includes("bloqueado")) return "⛔ JOGOS ABORTADOS";
 
-  return "🏆 RADAR DE VITÓRIAS";
-}
+        return "🏆 RADAR DE VITÓRIAS";
+      }
 
-// --- Aplicar classificacao se o LLM mandar group errado
-todasAsSections = todasAsSections.map(s => ({
-  ...s,
-  group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
-}));
+      // --- Aplicar classificacao se o LLM mandar group errado
+      todasAsSections = todasAsSections.map(s => ({
+        ...s,
+        group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
+      }));
 
       // --- 🧠 MÁGICA DAS MÚLTIPLAS (FILTRO DE ELITE 80%+) ---
       // 1. Limpa lixos de múltiplas anteriores
@@ -297,12 +322,16 @@ todasAsSections = todasAsSections.map(s => ({
         return getPeso(a) - getPeso(b);
       });
 
+      // Calcula o momento exato no futuro em que o cache expira (em milissegundos)
+      const tempoExpiracao = Date.now() + (CACHE_TTL * 1000);
+
       analisePronta = {
         resultado: `Análise finalizada em modo turbo paralelo. Processados ${lotes.length} lotes de jogos.`,
-        sections: sectionsLimpas
+        sections: sectionsLimpas,
+        expiresAt: tempoExpiracao // 🔥 A mágica começa aqui
       };
 
-      await setCache(`SNIPER_V8:${date}`, analisePronta);
+      await setCache(`SNIPER_V12:${date}`, analisePronta); // Lembra de mudar a chave para V12 para testar!
       console.log(`✅ [SUCESSO] Grade completa analisada em PARALELO e salva no Redis.\n`);
     } else {
       console.log(`⚡ [CACHE] Leitura instantânea do Redis para a data ${date}.\n`);
@@ -315,6 +344,7 @@ todasAsSections = todasAsSections.map(s => ({
       status: "ok",
       date,
       generatedAt: new Date().toISOString(),
+      expiresAt: analisePronta.expiresAt, // 🔥 Envia o tempo para o Front-end
       source: { grade: "ESPN", ai: `Motor IA: ${MODEL_SNIPER} + Lotes Turbo Paralelo` },
       sections: analisePronta.sections,
       resultado: analisePronta.resultado
