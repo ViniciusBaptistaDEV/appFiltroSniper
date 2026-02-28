@@ -67,9 +67,18 @@ Seja exaustivo e detalhista. Ignorar um jogo da lista fornecida é uma FALHA CR�
 1️⃣ VARREDURA OBRIGATÓRIA (REAL-TIME)
 Escopo de Dados: Utilize estatísticas prioritariamente da Temporada ${temporada}.
 
-🔎 DIRETRIZ DE BUSCA E FONTES (PESQUISA AMPLA):
+🔎 DIRETRIZ DE BUSCA E FONTES (PESQUISA AMPLA - EXECUÇÃO OBRIGATÓRIA):
+Você possui a ferramenta de Busca Web. Você DEVE usá-la de forma inteligente e exaustiva para CADA jogo.
+Se a primeira busca não trouxer resultados úteis nos snippets, VOCÊ TEM A OBRIGAÇÃO de alterar as palavras-chave e tentar novamente antes de abortar.
 Para encontrar as estatísticas, lesões e contextos exigidos, faça buscas ativas e em tempo real na internet.
-Use múltiplas fontes confiáveis (ex.: Sofascore, Flashscore, FBref, Transfermarkt, ESPN, GE/Globo Esporte, LANCE!, sites oficiais das ligas e clubes).
+EXEMPLOS DE TERMOS EFICAZES (Adapte conforme necessário):
+1. Para Escalações: "escalação [Time A] x [Time B]", "predicted lineup [Team A]", "injury news [Team A] [Data]".
+2. Para Estatísticas: "[Time] xG stats ${temporada}", "[Time] corners stats average ${temporada}", "H2H [Time A] vs [Time B]".
+FONTES PRIORITÁRIAS (Busque especificamente nestes sites se necessário):
+• Sofascore, Flashscore, FBref, Transfermarkt, WhoScored, sites oficiais das ligas e clubes, etc.
+• Portais de Notícias: GE/Globo Esporte, BBC Sport, LANCE!, Goal.com, ESPN, Terra, FOX Sports, CNN Brasil, etc.
+⚠️ IMPORTANTE SOBRE A BUSCA: 
+Os snippets de busca podem ser limitados. Se você encontrar a provável escalação em pelo menos UM portal confiável, considere o dado como VÁLIDO. Não aborte o jogo inteiro apenas porque não encontrou o boletim médico detalhado se a escalação principal estiver confirmada pela imprensa.
 
 ✅ REGRA DE VALIDAÇÃO PRÉ-JOGO (PADRÃO DE ANÁLISE)
 Como a análise é feita horas ou dias antes da partida, você NÃO DEVE exigir escalação 100% oficial (que só sai ~1h antes).
