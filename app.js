@@ -64,10 +64,11 @@ async function analisar() {
             displayPercent += 1;
         }
 
-        // Regra 3: Se o alvo parou (ex: 25% esperando a IA), o display continua subindo 
-        // Se está esperando (Falso progresso), sobe bem devagar
-        else if (displayPercent < 99) {
-            if (Math.random() > 0.8) displayPercent += 1;
+        // Regra 3: FALSO PROGRESSO CONTROLADO (A Mágica)
+        // Só sobe sozinho se estiver no MÁXIMO 12% à frente do servidor.
+        else if (displayPercent < targetPercent + 12 && displayPercent < 95) {
+            // Sobe 1% de forma bem mais lenta (Math.random > 0.9 exige mais ciclos para passar)
+            if (Math.random() > 0.9) displayPercent += 1;
         }
 
         // Limita em 100
@@ -76,7 +77,7 @@ async function analisar() {
         // Atualiza UI
         if (progressText) progressText.textContent = `${displayPercent}%`;
 
-    }, 100); // Velocidade da subida (100ms = bem fluido)
+    }, 80); // Velocidade da subida (80ms = bem fluido)
 
     try {
         // Chamada simples (A PRINCIPAL QUE RODA A IA PESADA)
