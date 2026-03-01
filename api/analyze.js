@@ -212,7 +212,7 @@ export default async function handler(req, res) {
     let analisePronta = await getCache(`SNIPER_V12:${date}`);
 
     if (!analisePronta) {
-      const tamanhoLote = 6;
+      const tamanhoLote = 5; //quantos jogos analisa em cada lote
       const lotes = fatiarArray(grade, tamanhoLote);
       let lotesConcluidos = 0;
 
@@ -228,6 +228,12 @@ export default async function handler(req, res) {
 
         try {
           const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
+
+          // 🔥 ADICIONE ESTAS 3 LINHAS AQUI PARA DEPURAR:
+          console.log(`\n=== 🕵️‍♂️ RESPOSTA CRUA DA IA (LOTE ${index + 1}) ===`);
+          console.log(geminiResponse);
+          console.log(`=========================================\n`);
+          
           const parsed = safeJsonParseFromText(geminiResponse);
           if (parsed && parsed.sections) {
             return parsed.sections; // Retorna os cards desse lote
