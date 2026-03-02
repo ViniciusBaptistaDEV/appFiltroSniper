@@ -75,7 +75,7 @@ EXEMPLOS DE TERMOS EFICAZES (Adapte conforme necessário):
 1. Para Escalações: "escalação [Time A] x [Time B]", "predicted lineup [Team A]", "injury news [Team A] [Data]".
 2. Para Estatísticas: "[Time] xG stats ${temporada}", "[Time] corners stats average ${temporada}", "H2H [Time A] vs [Time B]".
 FONTES PRIORITÁRIAS (Busque especificamente nestes sites se necessário):
-• Sofascore, Flashscore, FBref, Transfermarkt, WhoScored, sites oficiais das ligas e clubes, etc.
+• Sofascore, Flashscore, FBref, Transfermarkt, WhoScored, Premier League Football News, sites oficiais das ligas e clubes, etc.
 • Portais de Notícias: GE/Globo Esporte, BBC Sport, LANCE!, Goal.com, ESPN, Terra, FOX Sports, CNN Brasil, etc.
 ⚠️ IMPORTANTE SOBRE A BUSCA: 
 Os snippets de busca podem ser limitados. Se você encontrar a provável escalação em pelo menos UM portal confiável, considere o dado como VÁLIDO. Não aborte o jogo inteiro apenas porque não encontrou o boletim médico detalhado se a escalação principal estiver confirmada pela imprensa.
@@ -319,7 +319,6 @@ O escopo permitido de análise é EXCLUSIVAMENTE:
 • Elite Europeia e Brasil: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Liga Portugal, Premiership (Escócia) e Brasileirão Série A.
 • Competições Continentais: UEFA Champions League e UEFA Europa League.
 • Copas Nacionais de Elite: FA Cup (Inglaterra), Copa del Rey (Espanha), Coppa Italia, DFB-Pokal (Alemanha) e Copa da França.
-• Ligas de Alto Investimento: Saudi Pro League (⚠️ Analise a partida se PELO MENOS UM dos times for um clube do PIF: Al-Hilal, Al-Nassr, Al-Ittihad, Al-Ahli).
 • Torneios de Seleções: Copa do Mundo, Eurocopa, Copa Africana de Nações e Copa América.
 Regra de Exclusão Absoluta (PROIBIDO ANALISAR):
 • Campeonatos Estaduais, Ligas Secundárias (ex.: Championship, La Liga 2), Categorias de Base, Amistosos e ligas não listadas acima.

@@ -17,7 +17,7 @@ const cleanEnv = (key) => process.env[key]?.replace(/['"]/g, '').trim();
 const REDIS_URL = cleanEnv('UPSTASH_REDIS_REST_URL')?.replace(/\/$/, '');
 const REDIS_TOKEN = cleanEnv('UPSTASH_REDIS_REST_TOKEN');
 const MODEL_SNIPER = cleanEnv('GEM_COLLECTOR_MODEL');
-const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS); // Tempo padrão 2 horas, se não definido
+const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS);
 
 /* ========================================================================================
 * CACHE GLOBAL (REDIS UPSTASH)
@@ -212,7 +212,7 @@ export default async function handler(req, res) {
     let analisePronta = await getCache(`SNIPER_V12:${date}`);
 
     if (!analisePronta) {
-      const tamanhoLote = 5; //quantos jogos analisa em cada lote
+      const tamanhoLote = 2; //quantos jogos analisa em cada lote
       const lotes = fatiarArray(grade, tamanhoLote);
       let lotesConcluidos = 0;
 

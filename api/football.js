@@ -13,12 +13,11 @@ const ALLOWED_LEAGUES = [
   "sco.1", // Scottish Premiership (Escócia)
   "bra.1", // Brasileirão Série A
 
-  // 💰 LIGAS DE ALTO INVESTIMENTO
-  "ksa.1", // Saudi Pro League (Arábia Saudita - PIF)
-
   // 🌍 CONTINENTAIS E SELEÇÕES OFICIAIS
   "uefa.champions",     // UEFA Champions League
   "uefa.europa",        // UEFA Europa League
+  "conmebol.libertadores", // Copa Libertadores da América
+  "conmebol.sudamericana", // Copa Sul-Americana
   "fifa.world",         // Copa do Mundo
   "uefa.euro",          // Eurocopa
   "caf.nations",        // Copa Africana de Nações
