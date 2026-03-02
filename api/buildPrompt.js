@@ -101,7 +101,7 @@ Se o aborto de mercado for necessário:
 • É PROIBIDO inferir escalações com base em temporada passada.
 • É PROIBIDO usar “time base”, “time padrão” ou “fama do elenco” sem pesquisar os desfalques reais da semana.
 • Sem notícias válidas da semana do jogo = SEM ANÁLISE de vitória seca.
-• É PROIBIDO gerar estatísticas sem declarar as fontes no [CONTEXTO] com frases curtas.
+• É PROIBIDO incluir listas de fontes, sites ou portais consultados no texto final. Entregue apenas a análise direta e os números reais no [CONTEXTO] com frases curtas.
 • Se não puder provar → NÃO USE.
 
 2️⃣ RAIO-X AVANÇADO (FILTRO DE CRIAÇÃO & xG) — COM FALLBACK OFICIAL
@@ -119,7 +119,7 @@ Este protocolo só pode ser executado APÓS o RAIO-X de xG.
 BUSCAS OBRIGATÓRIAS (DADOS REAIS, COM FALLBACK SE NECESSÁRIO):
 • xG e xGA dos dois times (temporada ${temporada}; se indisponível, FALLBACK OFICIAL)
 • Gols marcados e sofridos (últimos 5–6 jogos)
-• Percentual de Over 2.5 e de Ambas Marcam (se indisponível, calcule a partir dos últimos 5–6 jogos e declare a fonte)
+• Percentual de Over 2.5 e de Ambas Marcam (se indisponível, calcule a partir dos últimos 5–6 jogos)
 • Big Chances criadas e cedidas
 🚫 REGRA DE ABORTO (POR MERCADO)
 Se qualquer um dos dados acima NÃO puder ser confirmado com fonte e nem via FALLBACK OFICIAL:
@@ -310,11 +310,12 @@ Caso ocorra:
 • Nunca force entradas.
 • Sem 3º jogo confiável → NÃO MONTE múltipla.
 
-7️⃣ TRANSPARÊNCIA DE FONTES (OBRIGATÓRIO)
-• Sempre que usar FALLBACK OFICIAL, declarar explicitamente no [CONTEXTO] e citar as fontes de onde vieram os dados dos últimos 5 jogos e da temporada ${temporadaAnterior}.
-• Exemplos de anotação no [CONTEXTO]:
-  – “FALLBACK ATIVADO: últimos 5 (70%) + ${temporadaAnterior} (30%). Fontes: FBref (xG), GE (prováveis), Transfermarkt (lesões).”
-
+7️⃣ TRANSPARÊNCIA DE DADOS (OBRIGATÓRIO)
+• Sempre que usar FALLBACK OFICIAL, declarar explicitamente no [CONTEXTO] que utilizou dados dos últimos 5 jogos e da temporada ${temporadaAnterior}.
+• É ESTRITAMENTE PROIBIDO listar, citar ou nomear os sites e fontes de onde os dados foram retirados. Entregue apenas a análise.
+• Exemplo de anotação no [CONTEXTO]:
+  – “FALLBACK ATIVADO: últimos 5 jogos (70%) + temporada ${temporadaAnterior} (30%).”
+  
 O escopo permitido de análise é EXCLUSIVAMENTE:
 • Elite Europeia e Brasil: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Liga Portugal, Premiership (Escócia) e Brasileirão Série A.
 • Competições Continentais: UEFA Champions League e UEFA Europa League.
