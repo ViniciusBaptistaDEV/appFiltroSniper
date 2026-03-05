@@ -230,6 +230,8 @@ button:disabled {
 .card-main {
     padding: 20px;
     flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .match-league {
@@ -301,7 +303,8 @@ button:disabled {
 
 /* Confiança */
 .confidence-bar-container {
-    margin-top: 15px;
+    margin-top: auto;
+    padding-top: 15px;
 }
 
 .confidence-label {
