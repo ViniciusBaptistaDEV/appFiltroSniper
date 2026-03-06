@@ -1,5 +1,87 @@
 // UI/UX do Frontend: chama /api/analyze e renderiza os cards.
-// Cache/recálculo é totalmente controlado no backend (TTL=10 minutos).
+
+// Verifica se já existe uma sessão guardada ao abrir a página
+document.addEventListener('DOMContentLoaded', () => {
+    const loginContainer = document.getElementById('login-container');
+    const appContainer = document.getElementById('app-container');
+
+    if (sessionStorage.getItem('sniper_user') && sessionStorage.getItem('sniper_pass')) {
+        // Esconde o Login (Garante por Classe e por Style)
+        loginContainer.classList.add('hidden');
+        loginContainer.style.display = 'none';
+
+        // Mostra o App
+        appContainer.classList.remove('hidden');
+        appContainer.style.display = 'block';
+    } else {
+        // Mostra o Login
+        loginContainer.classList.remove('hidden');
+        loginContainer.style.display = 'block';
+
+        // Esconde o App
+        appContainer.classList.add('hidden');
+        appContainer.style.display = 'none';
+    }
+});
+
+// Lógica do botão de Entrar
+document.getElementById('btn-login').addEventListener('click', async () => {
+    const user = document.getElementById('login-user').value;
+    const pass = document.getElementById('login-pass').value;
+    const btn = document.getElementById('btn-login');
+
+    if (!user || !pass) {
+        mostrarErroAuth("Preencha ambos os campos para acessar.");
+        return;
+    }
+
+    const originalText = btn.innerText;
+    btn.innerText = "Verificando...";
+    btn.disabled = true;
+
+    try {
+        const hoje = new Date().toISOString().split('T')[0];
+        const response = await fetch("/api/analyze", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                'x-admin-user': user,
+                'x-admin-pass': pass
+            },
+            body: JSON.stringify({ date: hoje, checkCacheOnly: true })
+        });
+
+        if (response.status === 401) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            // 🔥 A MÁGICA AQUI: Chama o Modal Bonitão no lugar do textinho
+            mostrarErroAuth("Credenciais de acesso inválidas.");
+            return;
+        }
+
+        // Se a senha bater, salva na memória
+        sessionStorage.setItem('sniper_user', user);
+        sessionStorage.setItem('sniper_pass', pass);
+
+        // Troca de tela à prova de falhas
+        const loginContainer = document.getElementById('login-container');
+        const appContainer = document.getElementById('app-container');
+
+        loginContainer.classList.add('hidden');
+        loginContainer.style.display = 'none';
+
+        appContainer.classList.remove('hidden');
+        appContainer.style.display = 'block';
+
+        verificarCacheRedis(hoje);
+
+    } catch (err) {
+        mostrarErroAuth("Erro de conexão com o servidor. Tente novamente.");
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+});
+
 
 async function analisar() {
     const dateEl = document.getElementById("dateInput");
@@ -36,15 +118,28 @@ async function analisar() {
     document.getElementById("timerContainer").style.display = "none";
 
 
-    // 🕵️‍♂️ ESPPIÃO DE PROGRESSO (Polling do Redis)
+    // 🕵️‍♂️ ESPIÃO DE PROGRESSO (Polling do Redis)
     let progressInterval = setInterval(async () => {
         if (isFinished) return; // Se já acabou, para de perguntar
         try {
             const res = await fetch("/api/analyze", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    'x-admin-user': sessionStorage.getItem('sniper_user'),
+                    'x-admin-pass': sessionStorage.getItem('sniper_pass')
+                },
                 body: JSON.stringify({ date, checkProgress: true })
             });
+
+            if (res.status === 401) {
+                clearInterval(progressInterval); // Para de fazer perguntas ao servidor
+                clearInterval(animationInterval); // Para a animação da bolinha
+                isFinished = true;
+                mostrarErroAuth("Senha incorreta ou acesso expirado. Tente novamente.");
+                return;
+            }
+
             const d = await res.json();
 
             // Se o backend devolver um número maior que zero, atualiza a tela
@@ -83,7 +178,11 @@ async function analisar() {
         // Chamada simples (A PRINCIPAL QUE RODA A IA PESADA)
         const response = await fetch("/api/analyze", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                'x-admin-user': sessionStorage.getItem('sniper_user'),
+                'x-admin-pass': sessionStorage.getItem('sniper_pass')
+            },
             body: JSON.stringify({ date })
         });
 
@@ -424,6 +523,12 @@ function atualizarDisplayCronometro(tempoExpiracao) {
 
 // Pergunta ao Redis (Backend) quanto tempo falta para o cache expirar
 async function verificarCacheRedis(dataSelecionada) {
+
+    // 🛑 TRAVA: Se não tem usuário logado, fica quieto e não faz nada!
+    if (!sessionStorage.getItem('sniper_user') || !sessionStorage.getItem('sniper_pass')) {
+        return;
+    }
+
     const container = document.getElementById('timerContainer');
     const display = document.getElementById('countdownTimer');
 
@@ -435,9 +540,21 @@ async function verificarCacheRedis(dataSelecionada) {
     try {
         const response = await fetch("/api/analyze", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+                "Content-Type": "application/json",
+                'x-admin-user': sessionStorage.getItem('sniper_user'),
+                'x-admin-pass': sessionStorage.getItem('sniper_pass')
+            },
             body: JSON.stringify({ date: dataSelecionada, checkCacheOnly: true })
         });
+
+        if (response.status === 401) {
+            sessionStorage.clear(); // Limpa a senha errada da memória
+            mostrarErroAuth("Senha incorreta ou acesso expirado. Tente novamente.");
+            return;
+        }
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
 
@@ -454,20 +571,57 @@ async function verificarCacheRedis(dataSelecionada) {
 
 
 /* =========================================================
+    SISTEMA DE MODAL (ALERTAS BONITOS)
+   ========================================================= */
+function mostrarErroAuth(mensagem) {
+    sessionStorage.clear(); // Limpa as senhas erradas
+    document.getElementById('error-modal-msg').innerText = mensagem; // Troca o texto
+    document.getElementById('error-modal').style.display = 'flex'; // Mostra na tela
+}
+
+function fecharModalErro() {
+    document.getElementById('error-modal').style.display = 'none';
+    window.location.reload(); // Recarrega a página para voltar pra tela inicial limpa
+}
+
+/* =========================================================
+    SISTEMA DE LOGOUT
+   ========================================================= */
+function fazerLogout() {
+    // 1. Destrói as chaves da memória na mesma hora
+    sessionStorage.removeItem('sniper_user');
+    sessionStorage.removeItem('sniper_pass');
+
+    // 2. Chama o modal verde de despedida na tela
+    document.getElementById('logout-modal').style.display = 'flex';
+}
+
+function fecharModalLogout() {
+    // 3. Quando a pessoa clica no "OK", a página recarrega e tranca os portões
+    window.location.reload();
+}
+
+
+/* =========================================================
     QUANDO CARREGAR A TELA ACONTECE ISSO AQUI EMBAIXO
    ========================================================= */
-
-/** Preenche a data com "hoje" ao carregar */
 window.onload = () => {
+
+    /** Preenche a data com "hoje" ao carregar */
     const hoje = new Date().toISOString().split('T')[0];
     const el = document.getElementById('dateInput');
     el.value = hoje;
 
-    // Verifica o cache diretamente no Redis logo ao abrir a página
-    verificarCacheRedis(hoje);
+
+    // 🛑 SÓ verifica o cache diretamente no Redis (ping no servidor) se o usuário já estiver logado
+    if (sessionStorage.getItem('sniper_user') && sessionStorage.getItem('sniper_pass')) {
+        verificarCacheRedis(hoje);
+    }
 
     // Se você escolher outra data no calendário, ele pergunta pro Redis de novo
     el.addEventListener('change', (e) => {
-        verificarCacheRedis(e.target.value);
+        if (sessionStorage.getItem('sniper_user')) {
+            verificarCacheRedis(e.target.value);
+        }
     });
 };

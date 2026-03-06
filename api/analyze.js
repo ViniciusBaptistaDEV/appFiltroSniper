@@ -144,6 +144,15 @@ export const maxDuration = 60;
 * ====================================================================================== */
 
 export default async function handler(req, res) {
+
+  // 🔒 1. TRAVA DE SEGURANÇA (LOGIN E SENHA)
+  const reqUser = req.headers['x-admin-user'];
+  const reqPass = req.headers['x-admin-pass'];
+
+  if (reqUser !== process.env.ADMIN_USER || reqPass !== process.env.ADMIN_PASS) {
+    return res.status(401).json({ error: 'Acesso negado. Credenciais inválidas.' });
+  }
+
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed. Use POST." });
 
   const { date, limit, checkCacheOnly, checkProgress } = req.body || {};
@@ -233,7 +242,7 @@ export default async function handler(req, res) {
           console.log(`\n=== 🕵️‍♂️ RESPOSTA CRUA DA IA (LOTE ${index + 1}) ===`);
           console.log(geminiResponse);
           console.log(`=========================================\n`);
-          
+
           const parsed = safeJsonParseFromText(geminiResponse);
           if (parsed && parsed.sections) {
             return parsed.sections; // Retorna os cards desse lote
@@ -248,7 +257,7 @@ export default async function handler(req, res) {
         }
         return []; // Se um lote der erro, retorna vazio para não quebrar os outros
       });
-      
+
 
       // 💥 A MÁGICA ACONTECE AQUI: Espera todos os lotes terminarem ao mesmo tempo!
       const resultadosParalelos = await Promise.all(tarefas);

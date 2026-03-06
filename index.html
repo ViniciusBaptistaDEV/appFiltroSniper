@@ -13,7 +13,22 @@
 </head>
 
 <body>
-    <div class="container">
+    <div id="login-container" class="container">
+        <header>
+            <h1>🎯 FILTRO <span class="highlight">SNIPER</span></h1>
+            <p class="subtitle">Acesso Restrito</p>
+        </header>
+        <div style="display: flex; flex-direction: column; gap: 15px; max-width: 300px; margin: 0 auto;">
+            <input type="text" id="login-user" placeholder="Login"
+                style="padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white;">
+            <input type="password" id="login-pass" placeholder="Senha"
+                style="padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: white;">
+            <button id="btn-login"
+                style="padding: 12px; cursor: pointer; background: #22c55e; color: #0b1120; border: none; border-radius: 6px; font-weight: bold; font-size: 1.1em;">Entrar</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="container hidden" style="position: relative;">
         <header>
             <h1>🎯 FILTRO <span class="highlight">SNIPER</span></h1>
             <p class="subtitle">Análise Tática Avançada e Probabilidades via IA</p>
@@ -22,6 +37,7 @@
         <div class="controls">
             <!-- Campo de data (preenchido com hoje no onload do app.js) -->
             <input type="date" id="dateInput" required />
+
             <!-- Clique normal: sempre aciona a análise; cache é controlado no backend com TTL -->
             <button onclick="analisar()" id="btnAnalisar"
                 title="Sempre roda a análise; cache expira em 10 minutos automaticamente">
@@ -33,6 +49,10 @@
             style="display: none; text-align: center; margin-top: 14px; font-size: 1em; color: #94a3b8; font-weight: bold; font-style: italic;">
             Status do Sistema: <strong id="countdownTimer"
                 style="color: #10b981; font-family: monospace; font-size: 1.2em; font-weight: 600; letter-spacing: 1px;">00:00:00</strong>
+
+            <button id="btn-logout" onclick="fazerLogout()">
+                Encerrar sessão <img class="iconeSair" src="./imagens/logout.svg" alt="Sair" width="18" height="18">
+            </button>
         </div>
 
         <!-- Loading -->
@@ -42,8 +62,8 @@
                 </div>
 
                 <div id="progressText" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-                    display: flex; justify-content: center; align-items: center; 
-                    font-weight: 800; font-size: 1.1em; color: #10b981; pointer-events: none;">
+                        display: flex; justify-content: center; align-items: center; 
+                        font-weight: 800; font-size: 1.1em; color: #10b981; pointer-events: none;">
                     1%
                 </div>
             </div>
@@ -61,6 +81,37 @@
                     📋 Copiar Análise
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div id="error-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div
+            style="background: #1e293b; border: 2px solid #ef4444; border-radius: 12px; padding: 30px; max-width: 350px; width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(239, 68, 68, 0.3); animation: fadeIn 0.3s ease-out;">
+            <div style="font-size: 3.5rem; margin-bottom: 10px; line-height: 1;">🔒</div>
+            <h2 style="color: #f8fafc; margin-bottom: 10px; font-size: 1.5rem; letter-spacing: 0.5px;">Acesso Negado
+            </h2>
+            <p id="error-modal-msg" style="color: #94a3b8; margin-bottom: 25px; font-size: 1rem;"></p>
+            <button onclick="fecharModalErro()"
+                style="background: #ef4444; color: #fff; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 1.1em; cursor: pointer; width: 100%; transition: background 0.2s;">
+                Voltar ao Login
+            </button>
+        </div>
+    </div>
+
+    <div id="logout-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+        <div
+            style="background: #1e293b; border: 2px solid #22c55e; border-radius: 12px; padding: 30px; max-width: 350px; width: 90%; text-align: center; box-shadow: 0 10px 40px rgba(34, 197, 94, 0.2); animation: fadeIn 0.3s ease-out;">
+            <div style="font-size: 3.5rem; margin-bottom: 10px; line-height: 1;">🔒</div>
+            <h2 style="color: #f8fafc; margin-bottom: 10px; font-size: 1.5rem; letter-spacing: 0.5px;">Sessão Encerrada
+            </h2>
+            <p style="color: #94a3b8; margin-bottom: 0; font-size: 1rem;">Você saiu com segurança. <br />Até a próxima
+                análise!</p>
+            <button onclick="fecharModalLogout()"
+                style="background: #22c55e; color: #0b1120; border: none; margin-top: 20px; padding: 12px 20px; border-radius: 6px; font-weight: bold; font-size: 1.1em; cursor: pointer; width: 100%; transition: background 0.2s;">
+                OK
+            </button>
         </div>
     </div>
 
