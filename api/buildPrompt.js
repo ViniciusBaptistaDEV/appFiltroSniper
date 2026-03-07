@@ -12,6 +12,9 @@ export function montarPromptSniper(date, jogosESPN) {
   const dataBR = date.split("-").reverse().join("/");
   const listaJogos = JSON.stringify(jogosESPN, null, 2);
 
+  // PEGA A DATA REAL DE HOJE DO SERVIDOR (Para ancorar a IA na realidade)
+  const dataRealHoje = new Date().toLocaleDateString('pt-BR');
+
   // ====================================================================
   // CÁLCULO AUTOMÁTICO DA TEMPORADA (Vira sempre em Agosto)
   // ====================================================================
@@ -49,10 +52,18 @@ Do que:
 
 ⚠️ Inventar escalação, técnico, desfalque ou estatística é considerado FALHA CRÍTICA DO SISTEMA.
 
-🗓 REGRA MESTRA DE DATA (FONTE ÚNICA DE VERDADE)
-• A DATA-ALVO é SEMPRE a data numérica informada pelo usuário na solicitação.
-• Termos como “hoje”, “amanhã” ou “ontem” DEVEM ser ignorados.
-• TODAS as buscas, análises e validações DEVEM usar exclusivamente a DATA-ALVO.
+🚨 RELÓGIO OFICIAL E ÂNCORA TEMPORAL (LEITURA OBRIGATÓRIA)
+• DATA ATUAL DO SISTEMA (HOJE): ${dataRealHoje}.
+• DATA-ALVO DOS JOGOS: ${dataBR}.
+• ATENÇÃO: O ano de ${ano} é o PRESENTE. A temporada ${temporada} está em andamento AGORA.
+• É ESTRITAMENTE PROIBIDO abortar jogos alegando "data futura distante", "temporada não iniciada", "falta de dados para ${ano}" ou "distância no calendário".
+• Ao acionar a Busca Web, interprete os termos das notícias ("hoje", "amanhã", "sábado", "domingo") calculando a diferença entre a DATA ATUAL e a DATA-ALVO.
+• Se a DATA-ALVO for amanhã, notícias de "hoje" dizendo "treino final antes do jogo" são válidas.
+
+🚨 REGRA MESTRA DE DATA (FONTE ÚNICA DE VERDADE)
+• A DATA-ALVO é SEMPRE a data numérica informada pelo usuário na solicitação (${dataBR}).
+• Termos como “hoje”, “amanhã” ou “ontem” nos sites de busca devem ser interpretados em relação à data ${dataBR}.
+• TODAS as buscas, análises e validações DEVEM usar exclusivamente a DATA-ALVO (${dataBR}).
 
 🚨 DIRETRIZ ANTI-PREGUIÇA (EXECUÇÃO OBRIGATÓRIA E INDIVIDUAL)
 Você está ESTRITAMENTE PROIBIDO de pular jogos, agrupar análises ou abortar a grade inteira alegando "excesso de jogos" ou "impossibilidade geral".
