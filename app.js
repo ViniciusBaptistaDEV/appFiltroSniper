@@ -406,13 +406,22 @@ function copiarTexto() {
         : "DATA NÃO INFORMADA";
 
     // Cabeçalho Premium
-    let textoFinal = `\n📅 𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — ${dataFormatada} \n`;
-    textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    let textoFinal = `\n📅 *𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — _${dataFormatada}_*\n`;
+    // textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    // textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    textoFinal += `===============================\n\n`;
 
     cards.forEach(card => {
 
+        // O .toUpperCase() garante que "Vermelha" ou "vermelha" sejam lidos corretamente
+        const flag = (card.querySelector(".card-side-badge")?.innerText || "").toUpperCase();
+
+        // 🔥 TRAVA SNIPER: Se a flag for vermelha, pula este card e não copia
+        if (flag.includes("VERMELHA")) {
+            return; // O return dentro de um forEach funciona como um "continue"
+        }
+
         // Dados básicos
-        const flag = card.querySelector(".card-side-badge")?.innerText || "";
         const grupo = card.querySelector(".match-league")?.innerText || "";
         const titulo = card.querySelector(".match-title")?.innerText || "";
         const inicio = card.querySelector(".match-time")?.innerText || "";
@@ -436,7 +445,6 @@ function copiarTexto() {
         let quadrado = "⬜";
         if (flag.includes("VERDE")) quadrado = "🟩";
         if (flag.includes("AMARELA")) quadrado = "🟨";
-        if (flag.includes("VERMELHA")) quadrado = "🟥";
         if (flag.includes("MÚLTIPLA")) quadrado = "🟦";
 
         // Emoji do tipo ao lado do grupo
@@ -446,7 +454,6 @@ function copiarTexto() {
         if (grupo.toUpperCase().includes("AMBAS")) emojiTipo = "⚽";
         if (grupo.toUpperCase().includes("ESCANTEIOS")) emojiTipo = "💎";
         if (flag.includes("MÚLTIPLA")) emojiTipo = "🎫";
-        if (flag.includes("VERMELHA")) emojiTipo = "⛔";
 
         // Bloco premium final
         textoFinal += `${quadrado} *${emojiTipo} ${grupo}*\n`;
