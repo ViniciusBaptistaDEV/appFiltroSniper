@@ -221,7 +221,7 @@ export default async function handler(req, res) {
     let analisePronta = await getCache(`SNIPER_V12:${date}`);
 
     if (!analisePronta) {
-      const tamanhoLote = 3; //quantos jogos analisa em cada lote
+      const tamanhoLote = 5; //quantos jogos analisa em cada lote
       const lotes = fatiarArray(grade, tamanhoLote);
       let lotesConcluidos = 0;
 
