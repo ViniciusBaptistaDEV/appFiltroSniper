@@ -221,7 +221,26 @@ export default async function handler(req, res) {
     let analisePronta = await getCache(`SNIPER_V12:${date}`);
 
     if (!analisePronta) {
-      const tamanhoLote = 5; //quantos jogos analisa em cada lote
+
+      let tamanhoLote = 3; //quantos jogos analisa em cada lote - VALOR PADRÃO
+
+      // 🔥 LOTE INTELIGENTE: Distribui os jogos garantindo no máximo 5 lotes (5 RPM - GEMINI)
+      if (grade.length > 10) {
+        // De 11 a 15 jogos (Gera até 5 lotes de 3)
+        tamanhoLote = 3;
+        console.log(`\n🧠 [SISTEMA] Grade grande (${grade.length} jogos). Ajustando lote para 3 jogos.`);
+      }
+      else if (grade.length > 5 && grade.length <= 10) {
+        // De 6 a 10 jogos (Gera até 5 lotes de 2)
+        tamanhoLote = 2;
+        console.log(`\n🧠 [SISTEMA] Grade média (${grade.length} jogos). Ajustando lote para 2 jogos.`);
+      }
+      else if (grade.length >= 1 && grade.length <= 5) {
+        // De 1 a 5 jogos (Gera até 5 lotes de 1 - Foco Máximo da IA)
+        tamanhoLote = 1;
+        console.log(`\n🧠 [SISTEMA] Grade pequena (${grade.length} jogos). Ajustando lote para 1 jogo.`);
+      }
+
       const lotes = fatiarArray(grade, tamanhoLote);
       let lotesConcluidos = 0;
 

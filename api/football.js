@@ -2,34 +2,42 @@
 // Implementa cache com TTL de 10 minutos para reduzir chamadas à ESPN.
 // O enriquecimento (escalação/lesões/xG/árbitro/estilo...) é tarefa do Gemini Coletor.
 
-const ALLOWED_LEAGUES = [
-  // 🏆 ELITE EUROPEIA E BRASIL (Conforme Prompt V8.1)
-  "eng.1", // Premier League (Inglaterra)
-  "esp.1", // LaLiga (Espanha)
-  "ita.1", // Serie A (Itália)
-  "ger.1", // Bundesliga (Alemanha)
-  "fra.1", // Ligue 1 (França)
-  "por.1", // Liga Portugal
-  "sco.1", // Scottish Premiership (Escócia)
-  "bra.1", // Brasileirão Série A
+// ==========================================
+// 🏆 SISTEMA DE TIERS E CORTES (MÁXIMO 15 JOGOS)
+// ==========================================
+const TIERED_LEAGUES = {
+    // 🌟 TIER 1: Elite Absoluta (Prioridade Máxima)
+    "eng.1": 1,
+    "esp.1": 1,
+    "uefa.champions": 1,
+    "conmebol.libertadores": 1,
+    "bra.1": 1,
+    "fifa.world": 1,
 
-  // 🌍 CONTINENTAIS E SELEÇÕES OFICIAIS
-  "uefa.champions",     // UEFA Champions League
-  "uefa.europa",        // UEFA Europa League
-  "conmebol.libertadores", // Copa Libertadores da América
-  "conmebol.sudamericana", // Copa Sul-Americana
-  "fifa.world",         // Copa do Mundo
-  "uefa.euro",          // Eurocopa
-  "caf.nations",        // Copa Africana de Nações
-  "conmebol.america",   // Copa América
+    // ⭐ TIER 2: Alto Nível Continental e Nacional
+    "ita.1": 2,
+    "ger.1": 2,
+    "fra.1": 2,
+    "por.1": 2,
+    "uefa.europa": 2,
+    "uefa.euro": 2,
+    "conmebol.america": 2,
 
-  // 🛡️ COPAS NACIONAIS (Apenas as principais da Elite)
-  "eng.fa",             // FA Cup (Inglaterra)
-  "esp.copa_del_rey",   // Copa del Rey (Espanha)
-  "ita.coppa_italia",   // Coppa Italia
-  "ger.dfb_pokal",      // Copa da Alemanha
-  "fra.coupe_de_france" // Copa da França
-];
+    // ⚔️ TIER 3: Copas e Ligas Secundárias (Só entram se sobrar vaga)
+    "eng.fa": 3,
+    "esp.copa_del_rey": 3,
+    "ita.coppa_italia": 3,
+    "ger.dfb_pokal": 3,
+    "fra.coupe_de_france": 3,
+    "conmebol.sudamericana": 3,
+    "sco.1": 3,
+    "caf.nations": 3
+};
+
+const LIMITE_JOGOS_POR_DIA = 15;
+
+// Extrai apenas as chaves (os nomes das ligas) para o mapa de busca da ESPN
+const ALLOWED_LEAGUES = Object.keys(TIERED_LEAGUES);
 
 // Cache em memória por data com TTL
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
@@ -41,6 +49,7 @@ function isFresh(entry) {
 
 /**
 * Busca e consolida a grade do dia a partir da ESPN em múltiplas ligas.
+* Aplica o filtro de Tiers para respeitar o limite gratuito da API.
 * @param {string} date - AAAA-MM-DD
 * @param {object} options - { limit?: number }
 * @returns {Promise<Array>} [{ league, leagueSlug, fixtureId, kickoff, homeTeam, awayTeam }]
@@ -83,26 +92,8 @@ export async function buscarJogos(date, options = {}) {
 
     let jogosDoDia = Array.from(mapaPorEvento.values());
 
-    // 3) Ordenação determinística (datetime ↑, liga ↑, id ↑)
-    jogosDoDia.sort((a, b) => {
-        const da = new Date(a.date || a.startDate || 0).getTime();
-        const db = new Date(b.date || b.startDate || 0).getTime();
-        if (da !== db) return da - db;
-
-        const la = String(a._leagueName || "");
-        const lb = String(b._leagueName || "");
-        if (la !== lb) return la.localeCompare(lb);
-
-        return String(a.id).localeCompare(String(b.id));
-    });
-
-    // 4) Limite opcional
-    if (Number.isFinite(limit) && limit > 0) {
-        jogosDoDia = jogosDoDia.slice(0, limit);
-    }
-
-    // 5) Mapa simplificado para o coletor do Gemini
-    const simplificados = jogosDoDia.map((jogo) => {
+    // 3) Filtro Mestre: Mapeamento Simples para a saída
+    let simplificados = jogosDoDia.map((jogo) => {
         const comp = jogo?.competitions?.[0];
         const home = comp?.competitors?.find((c) => c.homeAway === "home")?.team;
         const away = comp?.competitors?.find((c) => c.homeAway === "away")?.team;
@@ -116,11 +107,43 @@ export async function buscarJogos(date, options = {}) {
         };
     }).filter(j => j.homeTeam && j.awayTeam);
 
+    // ==========================================
+    // 🔪 A FACA DO SNIPER: APLICAÇÃO DOS TIERS E CORTE
+    // ==========================================
+    console.log(`\n⚽ [ESPN] Grade inicial carregada: ${simplificados.length} jogos encontrados para a data ${date}.`);
+
+    // Ordena os jogos pelo Tier (Tier 1 no topo) e, em caso de empate de Tier, ordena por horário
+    simplificados.sort((a, b) => {
+        const tierA = TIERED_LEAGUES[a.leagueSlug] || 99; // 99 é segurança caso uma liga não tenha peso
+        const tierB = TIERED_LEAGUES[b.leagueSlug] || 99;
+
+        if (tierA !== tierB) {
+            return tierA - tierB; // Menor número ganha prioridade
+        }
+
+        // Se for o mesmo Tier, o jogo mais cedo vem primeiro
+        const timeA = new Date(a.kickoff).getTime();
+        const timeB = new Date(b.kickoff).getTime();
+        return timeA - timeB;
+    });
+
+    // Faz o corte final
+    const jogosCortados = simplificados.slice(LIMITE_JOGOS_POR_DIA);
+    simplificados = simplificados.slice(0, LIMITE_JOGOS_POR_DIA); // Reduz a lista aos 15 melhores
+
+    if (jogosCortados.length > 0) {
+        console.log(`\n🚨 [SISTEMA] Grade excedeu o limite seguro de (${LIMITE_JOGOS_POR_DIA} jogos por análise).`);
+        console.log(`✂️ Cortando ${jogosCortados.length} jogos de menor prioridade:`);
+        jogosCortados.forEach(jogo => {
+            console.log(`   ❌ Removido: ${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league}) - Tier ${TIERED_LEAGUES[jogo.leagueSlug]}`);
+        });
+    }
+
+    console.log(`\n🎯 [SISTEMA] Selecionados os ${simplificados.length} melhores jogos para análise.`);
+    // ==========================================
+
     // Grava cache com timestamp
     gradeCache.set(date, { ts: Date.now(), value: simplificados });
-
-    console.log("\n===== 🧭 ESPN/grade estável =====");
-    console.log(JSON.stringify(simplificados, null, 2));
 
     return simplificados;
 }
