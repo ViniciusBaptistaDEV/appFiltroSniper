@@ -62,7 +62,7 @@ export async function buscarJogos(date, options = {}) {
     if (isFresh(cached)) return cached.value;
 
     const dataESPN = date.replace(/-/g, "");
-    console.log(`🔎 ESPN grade-mestra para: ${dataESPN}...`);
+    console.log(`\n🔎 Grade de jogos encontrados na ESPN para: ${date}...`);
 
     // 1) Scoreboards por liga (paralelo)
     const promessasLigas = ALLOWED_LEAGUES.map((league) =>
@@ -110,11 +110,26 @@ export async function buscarJogos(date, options = {}) {
     // ==========================================
     // 🔪 A FACA DO SNIPER: APLICAÇÃO DOS TIERS E CORTE
     // ==========================================
-    console.log(`\n⚽ [ESPN] Grade inicial carregada: ${simplificados.length} jogos encontrados para a data ${date}.`);
+    console.log(`\n⚽ [ESPN] Encontrados ${simplificados.length} jogos para a data ${date}.`);
 
-    // Ordena os jogos pelo Tier (Tier 1 no topo) e, em caso de empate de Tier, ordena por horário
+    // 1. FILTRO DO RELÓGIO: Remove jogos que já começaram ou terminaram
+    const agora = Date.now();
+    const jogosFuturos = simplificados.filter(jogo => {
+        const horarioJogo = new Date(jogo.kickoff).getTime();
+        return horarioJogo > agora; // Só mantém na lista se o jogo ainda for acontecer
+    });
+
+    const jogosPassados = simplificados.length - jogosFuturos.length;
+    if (jogosPassados > 0) {
+        console.log(`\n⏰ [SISTEMA] Descartando ${jogosPassados} ${jogosPassados.length > 1 ? "jogos" : "jogo"}  que já começaram/terminaram.`);
+    }
+
+    // Atualiza a lista apenas com os jogos válidos
+    simplificados = jogosFuturos;
+
+    // 2. ORDENAÇÃO POR TIER: (Tier 1 no topo) e desempate por horário
     simplificados.sort((a, b) => {
-        const tierA = TIERED_LEAGUES[a.leagueSlug] || 99; // 99 é segurança caso uma liga não tenha peso
+        const tierA = TIERED_LEAGUES[a.leagueSlug] || 99; // 99 é segurança
         const tierB = TIERED_LEAGUES[b.leagueSlug] || 99;
 
         if (tierA !== tierB) {
@@ -127,15 +142,15 @@ export async function buscarJogos(date, options = {}) {
         return timeA - timeB;
     });
 
-    // Faz o corte final
+    // 3. O CORTE FINAL: Garante o limite de 15 jogos
     const jogosCortados = simplificados.slice(LIMITE_JOGOS_POR_DIA);
-    simplificados = simplificados.slice(0, LIMITE_JOGOS_POR_DIA); // Reduz a lista aos 15 melhores
+    simplificados = simplificados.slice(0, LIMITE_JOGOS_POR_DIA);
 
     if (jogosCortados.length > 0) {
-        console.log(`\n🚨 [SISTEMA] Grade excedeu o limite seguro de (${LIMITE_JOGOS_POR_DIA} jogos por análise).`);
-        console.log(`✂️ Cortando ${jogosCortados.length} jogos de menor prioridade:`);
+        console.log(`\n🚨 [SISTEMA] Grade da ESPN excedeu o limite de ${LIMITE_JOGOS_POR_DIA} jogos por análise. Selecionando os melhores jogos:`);
+        console.log(`\n✂️ Cortando ${jogosCortados.length} ${jogosCortados.length > 1 ? "jogos" : "jogo"} de menor prioridade:`);
         jogosCortados.forEach(jogo => {
-            console.log(`   ❌ Removido: ${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league}) - Tier ${TIERED_LEAGUES[jogo.leagueSlug]}`);
+            console.log(`\n   ❌ Removido: ${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league}) - Tier ${TIERED_LEAGUES[jogo.leagueSlug]}`);
         });
     }
 
