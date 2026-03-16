@@ -208,7 +208,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         status: "ok",
         date,
-        resultado: "🧭 Grade vazia ou sem jogos válidos no escopo.",
+        resultado: "🧭 Grade de jogos vazia ou sem jogos válidos para análises.",
         sections: []
       });
     }
