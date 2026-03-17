@@ -21,7 +21,7 @@ body {
     border-radius: 12px;
     padding: 40px 30px;
     box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
-    border: 1px solid #334155;
+    border: 2px solid #334155;
 }
 
 header {
@@ -106,10 +106,10 @@ button:active:not(:disabled) {
     /* 1. Ele volta do -2px do hover e desce mais 1px (total 3px de movimento) */
     /* 2. O scale(0.97) dá aquele efeito de mola, como se você estivesse apertando ele */
     transform: translateY(1px) scale(0.92);
-    
+
     /* 3. A sombra diminui porque o botão está "encostando" na superfície */
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    
+
     /* 4. No clique, a velocidade tem que ser instantânea (0.1s) */
     transition: all 0.2s ease;
 }
@@ -206,7 +206,7 @@ button:disabled {
 #resultCard {
     background: #0f172a;
     border-radius: 8px;
-    border: 1px solid #334155;
+    border: 2px solid #334155;
     padding: 25px;
     margin-top: 20px;
 }
@@ -340,7 +340,7 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
     gap: 15px;
     margin-top: 15px;
-    border-top: 1px solid #334155;
+    border-top: 3px solid #334155;
     padding-top: 15px;
 }
 
@@ -362,7 +362,7 @@ button:disabled {
 /* Confiança */
 .confidence-bar-container {
     margin-top: auto;
-    padding-top: 15px;
+    padding-top: 10px;
 }
 
 .confidence-label {
@@ -372,9 +372,12 @@ button:disabled {
 }
 
 .confidence-bar-bg {
-    height: 6px;
-    background: #0f172a;
-    border-radius: 10px;
+    height: 8px;
+    /* background: #0f172a; */
+    background: #485464;
+    overflow: hidden; /* Garante que o verde não vaze nas pontas arredondadas */
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3); /* 🔥 Opcional: Dá um efeito de "fundo afundado" super elegante */
+    border-radius: 20px;
 }
 
 .confidence-bar-fill {
@@ -401,7 +404,7 @@ button:disabled {
 /* --- Fallback (Mantido para compatibilidade com renderRawTextAsCards) --- */
 .analysis-card {
     background: #1e293b;
-    border: 1px solid #334155;
+    border: 2px solid #334155;
     border-left: 5px solid #22c55e;
     border-radius: 8px;
     padding: 20px;
@@ -467,6 +470,67 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 input[type="date"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
 }
+
+/* =========================================================
+    SISTEMA DE ODDS (FAIR ODDS & RECOMENDADA)
+   ========================================================= */
+.card-footer {
+    margin-top: auto;
+    /* Empurra TUDO (Odds + Confiança) para o chão de uma vez só */
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    /* Espaço exato entre as odds e a barra */
+}
+
+.odds-container {
+    display: flex;
+    gap: 15px;
+    padding-top: 15px;
+    border-top: 3px solid #334155;
+}
+
+/* Isso desliga a "briga" da barra de confiança original com o nosso rodapé */
+.card-footer .confidence-bar-container {
+    margin-top: 0 !important;
+}
+
+.odd-box {
+    flex: 1;
+    background: #0f172a;
+    border: 2px solid #334155;
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.odd-box.recommended {
+    border-color: #22c55e;
+    background: rgba(34, 197, 94, 0.05);
+}
+
+.odd-box.recommended .odd-value {
+    color: #22c55e;
+}
+
+.odd-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.odd-value {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
 
 /* ========================================================================================
     MEDIA QUERIES

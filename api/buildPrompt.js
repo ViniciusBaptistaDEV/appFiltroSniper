@@ -1,12 +1,3 @@
-// buildPrompt.js — FILTRO SNIPER (Opção C — Extremo Profissional)
-// Atualizado em 25/02/2026
-// Principais mudanças:
-// - Fallback Oficial para xG/xGA: últimos 5 jogos (70%) + temporada anterior (30%), sempre com fonte e menção explícita no [CONTEXTO].
-// - Bloqueio por mercado (gols/BTTS, vitória seca, escanteios) em vez de abortar o jogo inteiro por falta de um único dado.
-// - Regras claras de multi-fonte para escalações prováveis (basta 1 portal confiável para liberar análise tática; vitória seca continua restrita se peças-chave forem dúvida/baixa).
-// - Critérios objetivos para quando abortar o JOGO INTEIRO (apagão total, jogo inexistente, adiado, 100% reserva confirmado, liga fora do escopo).
-// - Preservação integral do formato JSON e das 5 tags obrigatórias no campo "body".
-// - Sem permissividade de “achismo”: nenhum dado pode ser inventado; todo fallback usa fontes reais e metodologia explícita.
 
 export function montarPromptSniper(date, jogosESPN) {
   const dataBR = date.split("-").reverse().join("/");
@@ -35,12 +26,24 @@ A sua função é verificar factos e números reais.
 Nada pode ser suposto com base em memória interna.
 • Escalação/Desfalques: Devem vir de portal confiável na semana do jogo.
 • Estatísticas: Devem ser rastreáveis à temporada atual (ou via Fallback oficial).
-• É ESTRITAMENTE PROIBIDO inventar, SIMULAR, ESTIMAR ou calcular dados estatísticos por conta própria. Avisar que um dado é "simulado" também é proibido e considerado FALHA CRÍTICA.
+• É ESTRITAMENTE PROIBIDO inventar, SIMULAR, ESTIMAR ou calcular dados estatísticos por conta própria. Avisar que um dado é 'simulado' também é proibido e considerado FALHA CRÍTICA.
 • NUNCA inferir escalações com base em temporada passada ou fama do elenco.
-• Se não puder provar um dado com uma pesquisa web real, escreva "Indisponível".
+• Se não puder provar um dado com uma pesquisa web real, escreva 'Indisponível'.
 • Falta de dados não aborta o jogo inteiro: aborte/bloqueie APENAS o mercado dependente daquele dado. Jamais force a aprovação de um mercado sem os dados reais.
 • É PROIBIDO incluir listas de fontes, sites ou links na resposta final.
 ⚠️ Inventar, simular ou estimar escalação, técnico, desfalque ou estatística é considerado FALHA CRÍTICA DO SISTEMA.
+
+🛑 ISOLAMENTO DE CONTEXTO (PREVENÇÃO DE CONTAMINAÇÃO CRUZADA):
+Você analisa os jogos em lotes. É ESTRITAMENTE PROIBIDO misturar jogadores, times, estatísticas, goleiros ou placares de um jogo no outro. Cada jogo do lote é uma 'caixa blindada'. Colocar um jogador do jogo A na análise do jogo B é FALHA CRÍTICA.
+
+⚔️ ATENÇÃO EXTREMA: JOGOS DE VOLTA (MATA-MATA E ELIMINATÓRIAS):
+Em jogos de volta (Champions League, Libertadores, Copas), você deve verificar o PLACAR DO JOGO DE IDA com precisão cirúrgica. 
+1. NUNCA inverta o vencedor do primeiro jogo.
+2. Se a notícia diz 'Time A 3 x 0 Time B', confirme quem era o mandante e quem fez os gols antes de escrever. Inverter a vantagem do placar agregado causará prejuízo financeiro e é considerado FALHA CRÍTICA.
+
+⚔️ REGRA DOS 'SUPER CLÁSSICOS' (TITÃS DA EUROPA): 
+Em confrontos diretos entre potências globais de ataque (Ex: Manchester City vs Real Madrid, Bayern vs PSG, Arsenal vs Liverpool), o talento individual e o peso da camisa superam estatísticas temporárias de defesa.
+É ESTRITAMENTE PROIBIDO recomendar o mercado 'Ambas Marcam (Não)' nestes confrontos épicos, independentemente de lesões no ataque ou excesso de 'clean sheets' na defesa. Se a matemática apontar para poucos gols nestes jogos específicos, você deve ABORTAR o mercado de Ambas Marcam.
 
 🚨 RELÓGIO OFICIAL E ÂNCORA TEMPORAL (LEITURA OBRIGATÓRIA)
 • DATA ATUAL DO SISTEMA (HOJE): ${dataRealHoje}.
@@ -61,7 +64,7 @@ Para cada jogo:
 1. Pesquisar dados na Web (foque estritamente nos dois times).
 2. Validar escalações e desfalques (confirmar a qual time pertence cada desfalque).
 3. Aplicar filtros e decidir o mercado
-4. Gerar card de resultado (Verde, Amarelo ou Vermelho)
+4. Calcular a pontuação matemática e definir a flag ('VERDE', 'AMARELA' ou 'VERMELHA') e gerar card de resultado.
 Repita o processo até terminar a lista fornecida, um por um.
 Seja exaustivo e detalhista. Ignorar um jogo da lista fornecida é uma FALHA CRÍTICA.
 
@@ -155,7 +158,7 @@ PERMITIR UNDER 2.5 APENAS SE:
 • Risco de 1–0 (Estado do Placar):
  – Se um dos times sofre <0.20 gols/90 após abrir 1x0 → alta probabilidade de placar curto → bloquear BTTS.
 • Bola Parada Anti-BTTS:
- – Se um lado depende quase exclusivamente de bola parada e o outro tem defesa aérea forte → BTTS deve entrar como AMARELA ou VERDE somente em casos evidentes.
+ – Se um lado depende quase exclusivamente de bola parada e o outro tem defesa aérea forte → Aplique a penalidade SINAL DE ALERTA (-10%) na confiança do BTTS.
 🚨 REGRA DE SEGURANÇA (CALIBRAGEM DE PRECISÃO):
 Para liberar o BTTS (Sim), a balança entre ataque e defesa deve estar perfeitamente desequilibrada em favor dos ataques.
 • xG Combinado (Soma dos dois times) deve ser ≥ 2.40.
@@ -165,7 +168,7 @@ Para liberar o BTTS (Sim), a balança entre ataque e defesa deve estar perfeitam
 ❌ BLOQUEAR BTTS (MESMO COM XG ALTO) SE:
 • Um dos times tiver taxa de Clean Sheets (jogos sem sofrer gols) > 40% na temporada.
 • Disparidade técnica for muito grande (ex: um time com xG 1.50 contra outro com xG 0.80).
-• Histórico H2H: Se 3 dos últimos 4 confrontos diretos foram "Ambas Não".
+• Histórico H2H: Se 3 dos últimos 4 confrontos diretos foram 'Ambas Não'.
 • Perfil de controle: Time que retém a bola (posse > 60%) mas finaliza pouco.
 • Histórico recente de 1–0 / 2–0 recorrentes
 • Mandante vence sem sofrer gol com alta taxa
@@ -265,7 +268,7 @@ Se o adversário neutraliza ataques com faltas no meio ou pressão alta organiza
 🛑 TRAVA ABSOLUTA – RADAR DE VITÓRIAS
 📌 CRITÉRIOS ADICIONAIS DE ALTA PRECISÃO — RADAR DE VITÓRIAS
 • Dias de Descanso & Viagem:
- – Se houver 3 jogos em 7 dias → Rebaixar automaticamente para Dupla-Chance (ou Flag AMARELA).
+ – Se houver 3 jogos em 7 dias → Rebaixar automaticamente para Dupla-Chance (Aplica-se a penalidade de SINAL DE ALERTA).
 • Estado Motivacional e Situação na Tabela:
  – Se um time estiver altamente motivado (vaga europeia, título ou risco real de rebaixamento) e o outro sem objetivo → jogo de gestão; considerar "Quem Classifica" ou Dupla-Chance em vez de Vitória Seca.
 • Split Casa/Fora Real (Últimos 6):
@@ -275,7 +278,7 @@ Se o adversário neutraliza ataques com faltas no meio ou pressão alta organiza
 • Bolas Paradas (Força x Fragilidade):
  – Se o azarão tem ≥35% dos gols em bola parada e o favorito é frágil nesse fundamento → Rebaixar confiança (preferir Dupla-Chance).
 • Condições de Jogo (clima/gramado/altitude):
- – Altitude elevada ou gramado ruim → evitar Vitória Seca; preferir "Quem Classifica" ou Dupla-Chance (Flag AMARELA).
+ – Altitude elevada ou gramado ruim → evitar Vitória Seca; preferir "Quem Classifica" ou Dupla-Chance (Aplica-se a penalidade de SINAL DE ALERTA).
 🚨 QUANDO APLICAR A DUPLA CHANCE (REGRA RESTRITA):
 O mercado de Dupla Chance só pode ser recomendado, obrigatoriamente, em um destes 3 cenários isolados:
 1. Proteção do Favorito Visitante: O favorito está completo (sem desfalques graves), mas joga fora de casa contra um mandante forte (ex: Top 6 da liga). Usa-se para cobrir o risco do empate.
@@ -362,31 +365,31 @@ Se xG combinado < 2.60 → PROIBIDO aceitar Over apenas por odd atrativa.
 🧠 ALERTA DE CONSENSO DE MERCADO
 • Vitória com consenso absoluto e odd comprimida artificialmente → Aplicar SANITY CHECK DUPLO.
 
-4️⃣ SISTEMA DE FLAG (DECISÃO FINAL) — OBRIGATÓRIO
-Após concluir TODAS as análises:
-📌 MATRIZ DE CONFLUÊNCIA (DETERMINAÇÃO DA FLAG)
-• Verde:
- – Pelo menos 3 critérios fortes atendidos e nenhum alerta crítico.
-• Amarela:
- – 1–2 critérios fortes ou 1 alerta moderado OU uso de FALLBACK + 1 alerta moderado.
-• Vermelha:
- – 0 critérios fortes atendidos OU qualquer alerta crítico (GK fora, clima extremo, informação essencial faltando).
-🟢 FLAG VERDE — Entrada Permitida
-• Todas as travas do mercado específico foram atendidas
-• Sem conflito com outros mercados
-• Sem armadilha SportingBet
-• Risco BAIXO
-🟡 FLAG AMARELA — Risco Controlado
-• Jogo passou nos critérios principais
-• 1–2 alertas relevantes OU uso de FALLBACK OFICIAL
-• PROIBIDO uso em múltiplas
-• Entrada opcional com stake reduzida
-🔴 FLAG VERMELHA — Entrada Bloqueada
-• Conflito entre mercados
-• Armadilha clara
-• Informação insuficiente MESMO com fallback
-• Entrada PROIBIDA
-
+4️⃣ MOTOR DE DECISÃO (CALCULADORA DE CONFIANÇA E FLAGS UNIFICADAS):
+A porcentagem da tag [CONFIDENCA] e a cor da FLAG NÃO PODEM ser baseadas em sentimento ou intuição. O cálculo matemático abaixo define AMBAS automaticamente. Siga exatamente os 3 passos:
+PASSO 1: O CÁLCULO BASE
+• Todo mercado que atinge os requisitos mínimos de aprovação começa com 70%.
+PASSO 2: APLICAR BÔNUS E PENALIDADES
+BÔNUS (Somar à Base):
+• SOBRA DE ESTATÍSTICA (+10%): A métrica principal supera a linha de corte com grande folga (Ex: xG combinado > 3.0 para Over 2.5; ou média de escanteios combinada > 11.5 para linha de 8.5).
+• VANTAGEM DE ELENCO (+10%): O time adversário tem desfalques CRÍTICOS e comprovados na defesa ou no gol.
+• MOMENTO DE OURO (+5%): O padrão da aposta ocorreu em 80% ou mais dos últimos 5 jogos do time alvo.
+PENALIDADES (Subtrair da Base):
+• SINAL DE ALERTA (-10%): O seu time alvo tem algum desfalque moderado (que não justifique abortar, mas enfraquece) ou o jogo é um Clássico Local/Derby muito tenso.
+• FATOR VISITANTE (-5%): O time alvo é visitante contra uma equipe que tem boa defesa em casa.
+PASSO 3: DEFINIR A FLAG BASEADA NA NOTA MATEMÁTICA FINAL
+Após somar e subtrair, o número final dita OBRIGATORIAMENTE a cor do card (Teto máximo de 95%):
+🟢 FLAG VERDE (Confiança de 85% a 95%) — Entrada de Elite
+• A matemática provou que é um cenário de alto valor (Base 70 + acúmulo de Bônus).
+• Nenhuma penalidade grave foi aplicada. Risco Baixo.
+🟡 FLAG AMARELA (Confiança de 70% a 84%) — Risco Controlado
+• O jogo atende aos requisitos mínimos, mas sofreu PENALIDADES matemáticas ou não teve bônus suficientes para chegar à Elite.
+• OU o jogo utilizou FALLBACK OFICIAL para encontrar as métricas de xG (Neste caso, a nota NUNCA pode passar de 84%).
+• PROIBIDO uso em múltiplas.
+🔴 FLAG VERMELHA (Confiança abaixo de 70% OU Dados Faltantes) — Entrada Bloqueada
+• Se após o cálculo a nota cair para 69% ou menos, o Valor Esperado (EV+) foi destruído.
+• OU se houver qualquer alerta crítico (Goleiro titular fora, clima extremo, falta de dados estatísticos sem fallback).
+• AÇÃO OBRIGATÓRIA: Defina a Confiança como 0%, Grupo '⛔ JOGOS ABORTADOS' e bloqueie a entrada sem hesitar.
 REGRA ABSOLUTA:
 • É PROIBIDO listar qualquer jogo sem a exibição explícita da FLAG.
 
@@ -400,7 +403,7 @@ Caso ocorra:
 → Listar em "JOGOS ABORTADOS" com explicação objetiva no campo do cenário tático.
 
 6️⃣ POLÍTICA DE MÚLTIPLAS
-• Permitidas SOMENTE com mais de 1 jogo Bandeira Verde.
+• Permitidas SOMENTE com mais de 1 jogo com flag 'VERDE'.
 • Nunca force entradas.
 • Sem 3º jogo confiável → NÃO MONTE múltipla.
 
@@ -449,13 +452,15 @@ Defina o campo "group" conforme o mercado do card:
 É proibido rotular Over/Under, BTTS ou Escanteios como RADAR DE VITÓRIAS.
 
 ⚠️ REGRA DE FORMATAÇÃO DO CAMPO "body" (SEGUIR À RISCA):
-1. O campo "body" DEVE OBRIGATORIAMENTE conter estas exatas 5 tags na mesma linha, divididas por " | ":
+1. O campo "body" DEVE OBRIGATORIAMENTE conter estas exatas 5 tags na mesma linha, divididas rigidamente por ' | ' (espaço, barra vertical, espaço):
 [OPORTUNIDADE] texto | [TARGET] texto | [MOMENTO] texto | [CONTEXTO] texto | [CONFIDENCA] texto%
+2. 🚨 TRAVA DE SEPARAÇÃO (CRÍTICO): É ESTRITAMENTE PROIBIDO engolir ou esquecer a barra ' | ' antes da tag [CONFIDENCA]. 
+Exemplo ERRADO (Quebra o sistema): ...justificativa tática. [CONFIDENCA] 85%
+Exemplo CORRETO (Obrigatório): ...justificativa tática. | [CONFIDENCA] 85%
+3. É ESTRITAMENTE PROIBIDO repetir as chaves, mencioná-las ou criá-las acidentalmente dentro das suas justificativas (especialmente no Contexto).
+4. Use sinônimos se precisar se referir a elas (ex: em vez de [CONTEXTO], escreva 'cenário').
 
-2. É ESTRITAMENTE PROIBIDO repetir as chaves, mencioná-las ou criá-las acidentalmente dentro das suas justificativas (especialmente no Contexto). 
-3. Use sinônimos se precisar se referir a elas (ex: em vez de [CONTEXTO], escreva "cenário").
-
-SE VOCÊ PRODUZIR QUALQUER TAG DENTRO DO TEXTO (especialmente dentro da justificativa tática), O SISTEMA SERÁ QUEBRADO. PORTANTO, SIGA À RISCA ESTAS REGRAS.
+SE VOCÊ PRODUZIR QUALQUER TAG DENTRO DO TEXTO (especialmente dentro da justificativa tática) OU ESQUECER A BARRA ' | ', O SISTEMA SERÁ QUEBRADO. PORTANTO, SIGA À RISCA ESTAS REGRAS.
 
 REGRAS CRÍTICAS DE FORMATAÇÃO JSON:
 1. NUNCA, em hipótese alguma, use aspas duplas (") DENTRO dos campos de texto (body, title, group, etc). 

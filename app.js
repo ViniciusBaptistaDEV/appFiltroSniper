@@ -253,6 +253,7 @@ async function analisar() {
 
 /** Renderiza uma lista de sections [{group,title,body,flag}] como cards */
 function renderSectionsAsCards(sections) {
+
     const container = document.getElementById("resultado");
     container.innerHTML = sections.map(sec => {
         const flagClass = flagToClass(sec.flag);
@@ -272,6 +273,28 @@ function renderSectionsAsCards(sections) {
         else if (flagClass === "amarela") badgeText = "AMARELA";
         else if (flagClass === "vermelha") badgeText = "VERMELHA";
         else if (flagClass === "multipla") badgeText = "MÚLTIPLA";
+
+        // 🔥 CÁLCULO DAS ODDS PARA VERDE E AMARELO
+        let oddsHtml = "";
+        if (flagClass === "verde" || flagClass === "amarela") {
+            const prob = parseConfidenceToProb(parts["CONFIDENCA"]);
+            const oddJusta = fairOddsFromProb(prob);
+            if (oddJusta) {
+                const oddRecomendada = oddJusta * (1 + FOLGA_PCT);
+                oddsHtml = `
+                    <div class="odds-container">
+                        <div class="odd-box">
+                            <span class="odd-label"><strong>Odd Justa</strong></span>
+                            <span class="odd-value">${formatOdds(oddJusta)}</span>
+                        </div>
+                        <div class="odd-box recommended">
+                            <span class="odd-label"><strong>Odd Recomendada</strong></span>
+                            <span class="odd-value">${formatOdds(oddRecomendada)}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        }
 
         return `
             <div class="sniper-card ${flagClass}">
@@ -311,25 +334,30 @@ function renderSectionsAsCards(sections) {
             })()}
                     </div>
                     
-                    ${isAbortado ? `
-                        <div class="status-abort">❌ ENTRADA ABORTADA</div>
-                        <div class="rationale-grid">
-                            <div class="rat-item"><strong>Estatística:</strong> ${parts["ESTATISTICA"]}</div>
-                            <div class="rat-item"><strong>Tático:</strong> ${parts["TACTICO"]}</div>
+                        ${isAbortado ? `
+                            <div class="status-abort">❌ ENTRADA ABORTADA</div>
+                            <div class="rationale-grid">
+                                <div class="rat-item"><strong>Estatística:</strong> ${parts["ESTATISTICA"] || "Indisponível"}</div>
+                                <div class="rat-item"><strong>Tático:</strong> ${parts["TACTICO"] || "Indisponível"}</div>
+                            </div>
+                        ` : `
+                            <div class="status-success">🎯 ${parts["OPORTUNIDADE"]}</div>
+                            <div class="target-info">${flagClass === "multipla" ? "Alvo" : "Alvo"}: ${parts["TARGET"]}</div>
+                            <div class="rationale-grid">
+                                <div class="rat-item"><strong>${flagClass === "multipla" ? "Lista" : "Momento"}:</strong> ${parts["MOMENTO"]}</div>
+                                <div class="rat-item"><strong>Contexto:</strong> ${parts["CONTEXTO"]}</div>
+                            
                         </div>
-                    ` : `
-                        <div class="status-success">🎯 ${parts["OPORTUNIDADE"]}</div>
-                        <div class="target-info">${flagClass === "multipla" ? "Alvo" : "Alvo"}: ${parts["TARGET"]}</div>
-                        <div class="rationale-grid">
-                            <div class="rat-item"><strong>${flagClass === "multipla" ? "Lista" : "Momento"}:</strong> ${parts["MOMENTO"]}</div>
-                            <div class="rat-item"><strong>Contexto:</strong> ${parts["CONTEXTO"]}</div>
+                        
+                        <div class="card-footer">
+                            ${oddsHtml}
+                            <div class="confidence-bar-container">
+                                <div class="confidence-label"><strong>CONFIANÇA: ${parts["CONFIDENCA"]}</strong></div>
+                                <div class="confidence-bar-bg"><div class="confidence-bar-fill" style="width: ${parts["CONFIDENCA"]}"></div></div>
+                            </div>
                         </div>
-                        <div class="confidence-bar-container">
-                            <div class="confidence-label">Confiança: ${parts["CONFIDENCA"]}</div>
-                            <div class="confidence-bar-bg"><div class="confidence-bar-fill" style="width: ${parts["CONFIDENCA"]}"></div></div>
-                        </div>
-                    `}
-                </div>
+                        `}
+                    </div>
             </div>
         `;
     }).join("");
@@ -465,6 +493,18 @@ function copiarTexto() {
         textoFinal += `📌 *Momento:* ${momento}\n`;
         textoFinal += `📊 *Contexto:* ${contexto}\n`;
         textoFinal += `📈 *Confiança:* ${confEmoji} ${confianca}\n`;
+
+        // 🔥 NOVAS ODDS NO WHATSAPP (Apenas Verde e Amarelo):
+        if (flag.includes("VERDE") || flag.includes("AMARELA")) {
+            const probIA = parseConfidenceToProb(confianca);
+            const oddJusta = fairOddsFromProb(probIA);
+
+            if (oddJusta) {
+                const oddRecomendada = oddJusta * (1 + FOLGA_PCT);
+                textoFinal += `⚖️ *Odd Justa:* ${formatOdds(oddJusta)}\n`;
+                textoFinal += `🎯 *Odd Recomendada:* ${formatOdds(oddRecomendada)}\n`;
+            }
+        }
 
         // 🔥 Separador Premium (sem gradiente)
         textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -608,6 +648,35 @@ function fecharModalLogout() {
     window.location.reload();
 }
 
+/* =========================================================
+    MOTOR MATEMÁTICO DE ODDS (VALUE BETTING)
+   ========================================================= */
+const FOLGA_PCT = 0.03; // 3% de folga (como você pediu)
+
+function parseConfidenceToProb(confStr) {
+    if (!confStr) return null;
+
+    // 🔥 MUDANÇA AQUI: O Regex agora ignora qualquer texto, emoji ou número solto. 
+    // Ele caça exclusivamente o número que está grudado (ou com 1 espaço) do símbolo de %
+    const m = String(confStr).match(/(\d+(?:[.,]\d+)?)\s*%/);
+
+    if (!m) return null;
+    const v = parseFloat(m[1].replace(',', '.'));
+    if (isNaN(v)) return null;
+
+    const p = v / 100;
+    if (p <= 0 || p >= 1) return null; // Proteção matemática
+
+    return p;
+}
+
+function fairOddsFromProb(p) {
+    return (p > 0 && p < 1) ? (1 / p) : null;
+}
+
+function formatOdds(n) {
+    return (typeof n === 'number' && isFinite(n)) ? n.toFixed(2) : '--';
+}
 
 /* =========================================================
     QUANDO CARREGAR A TELA ACONTECE ISSO AQUI EMBAIXO
