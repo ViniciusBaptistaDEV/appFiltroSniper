@@ -281,19 +281,70 @@ function renderSectionsAsCards(sections) {
             const oddJusta = fairOddsFromProb(prob);
             if (oddJusta) {
                 const oddRecomendada = oddJusta * (1 + FOLGA_PCT);
+
+                //CASO QUEIRA QUE MOSTRE A ODD JUSTA TAMBÉM, PRECISA COLOCAR ESSE BLOCO DENTRO DA DIV "odds-container" no bloco oddsHtml
+                // <div class="odd-box">
+                //     <span class="odd-label"><strong>Odd Justa</strong></span>
+                //     <span class="odd-value">${formatOdds(oddJusta)}</span>
+                // </div>
+
                 oddsHtml = `
                     <div class="odds-container">
-                        <div class="odd-box">
-                            <span class="odd-label"><strong>Odd Justa</strong></span>
-                            <span class="odd-value">${formatOdds(oddJusta)}</span>
-                        </div>
                         <div class="odd-box recommended">
-                            <span class="odd-label"><strong>Odd Recomendada</strong></span>
+                            <span class="odd-label"><strong>Odd Mínima Recomendada</strong></span>
                             <span class="odd-value">${formatOdds(oddRecomendada)}</span>
                         </div>
                     </div>
                 `;
             }
+        }
+
+        // 🔥 INJETANDO AS ODDS REAIS DA API (Com trava de indisponibilidade)
+        let realOddsHtml = "";
+
+        // Só tenta mostrar odds reais se for um card válido (Verde ou Amarelo)
+        if (flagClass === "verde" || flagClass === "amarela") {
+            if (sec.odds && (sec.odds.sportingbet || sec.odds.betnacional)) {
+
+                const formatRealOdd = (val) => {
+                    if (!val) return '--';
+                    if (typeof val === 'number') return val.toFixed(2);
+                    if (val.price) return parseFloat(val.price).toFixed(2);
+                    return val;
+                };
+
+                const sbOdd = formatRealOdd(sec.odds.sportingbet);
+                const bnOdd = formatRealOdd(sec.odds.betnacional);
+
+                // Define a classe CSS baseada no texto retornado
+                const sbClass = sbOdd.includes('Indisponível') ? 'unavailable' : '';
+                const bnClass = bnOdd.includes('Indisponível') ? 'unavailable' : '';
+
+                realOddsHtml = `
+                    <div class="odds-container secondary">
+                        <div class="odd-box sportingbet">
+                            <span class="odd-label"><strong>SportingBet</strong></span>
+                            <span class="odd-value ${sbClass}">${sbOdd}</span>
+                        </div>
+                        <div class="odd-box betnacional">
+                            <span class="odd-label"><strong>Betnacional</strong></span>
+                            <span class="odd-value ${bnClass}">${bnOdd}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            // } else {
+            //     // 🛑 A TRAVA: Sem API, mostra indisponível
+            //     realOddsHtml = `
+            //         <div class="odds-container secondary">
+            //             <div class="odd-box unavailable">
+            //                 <span class="unavailable-text">
+            //                     ⚠️ Odds nas casas indisponíveis no momento.
+            //                 </span>
+            //             </div>
+            //         </div>
+            //     `;
+            // }
         }
 
         return `
@@ -351,6 +402,7 @@ function renderSectionsAsCards(sections) {
                         
                         <div class="card-footer">
                             ${oddsHtml}
+                            ${realOddsHtml}
                             <div class="confidence-bar-container">
                                 <div class="confidence-label"><strong>CONFIANÇA: ${parts["CONFIDENCA"]}</strong></div>
                                 <div class="confidence-bar-bg"><div class="confidence-bar-fill" style="width: ${parts["CONFIDENCA"]}"></div></div>
@@ -504,6 +556,17 @@ function copiarTexto() {
                 textoFinal += `⚖️ *Odd Justa:* ${formatOdds(oddJusta)}\n`;
                 textoFinal += `🎯 *Odd Recomendada:* ${formatOdds(oddRecomendada)}\n`;
             }
+        }
+
+        // 🔥 NOVAS ODDS REAIS NO WHATSAPP:
+        if (sec.odds && (sec.odds.sportingbet || sec.odds.betnacional)) {
+            const getPrice = (v) => v ? (typeof v === 'number' ? v.toFixed(2) : (v.price ? parseFloat(v.price).toFixed(2) : v)) : null;
+            const sb = getPrice(sec.odds.sportingbet);
+            const bn = getPrice(sec.odds.betnacional);
+
+            textoFinal += `\n💰 *Odds nas Casas:*\n`;
+            if (sb) textoFinal += `🔵 SportingBet: ${sb}\n`;
+            if (bn) textoFinal += `🟠 Betnacional: ${bn}\n`;
         }
 
         // 🔥 Separador Premium (sem gradiente)

@@ -9,6 +9,7 @@
 
 import { buscarJogos } from "./football.js";
 import { montarPromptSniper } from "./buildPrompt.js";
+import { obterOddsDoDia, buscarOddsParaCard } from "./oddsFetcher.js";
 
 // Função para limpar as chaves da Vercel (evita erro de aspas invisíveis)
 const cleanEnv = (key) => process.env[key]?.replace(/['"]/g, '').trim();
@@ -20,7 +21,7 @@ const MODEL_SNIPER = cleanEnv('GEM_COLLECTOR_MODEL');
 const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS);
 
 /* ========================================================================================
-* CACHE GLOBAL (REDIS UPSTASH)
+  CACHE GLOBAL (REDIS UPSTASH)
 * ====================================================================================== */
 
 async function getCache(key) {
@@ -53,8 +54,50 @@ async function setCache(key, value) {
   }
 }
 
+
 /* ========================================================================================
-* GEMINI CORE (MOTOR DE BUSCA E ANÁLISE)
+  CACHE DE ODDS REAIS (CACHE DE 10 MINUTOS INDEPENDENTE)
+* ====================================================================================== */
+async function getEnrichedSections(sections, date, jogosESPN) {
+  const ODDS_CACHE_KEY = `SNIPER_ODDS_V3:${date}`;
+  let oddsDoDia = await getCache(ODDS_CACHE_KEY);
+
+  if (!oddsDoDia || !oddsDoDia.length) {
+    // 🔥 Agora passamos a grade já pronta, acabando com a lentidão!
+    oddsDoDia = await obterOddsDoDia(date, jogosESPN);
+
+    if (oddsDoDia && oddsDoDia.length > 0 && REDIS_URL && REDIS_TOKEN) {
+      await fetch(`${REDIS_URL}/set/${ODDS_CACHE_KEY}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(oddsDoDia)
+      });
+
+      // 600 (10 minutos) - 900 (15 minutos) - 1200 (20 minutos)
+      await fetch(`${REDIS_URL}/expire/${ODDS_CACHE_KEY}/900`, {
+        headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+      });
+    }
+  } else {
+    // 🔥 Log informativo de leitura de cache das ODDS
+    console.log(`⚡ [CACHE] Leitura instantânea das ODDS do Redis.\n`);
+  }
+
+  return sections.map(sec => {
+    if (sec.group === "⛔ JOGOS ABORTADOS" || sec.flag === "VERMELHA" || sec.group === "🎫 BILHETE COMBINADO") {
+      return { ...sec, odds: null };
+    }
+
+    return {
+      ...sec,
+      odds: buscarOddsParaCard(sec, oddsDoDia)
+    };
+  });
+}
+
+
+/* ========================================================================================
+  GEMINI CORE (MOTOR DE BUSCA E ANÁLISE)
 * ====================================================================================== */
 
 const cleanVar = (val) => String(val || "").replace(/['"]/g, "").trim();
@@ -122,7 +165,7 @@ function safeJsonParseFromText(txt) {
 }
 
 /* ========================================================================================
-* FUNÇÕES AUXILIARES DO NOVO MOTOR TURBO
+  FUNÇÕES AUXILIARES DO NOVO MOTOR TURBO
 * ====================================================================================== */
 
 // Fatiador de Array: Quebra a lista gigante de jogos em caixas menores.
@@ -213,7 +256,7 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`\n⚽ [ESPN] Grade carregada com sucesso: ${grade.length} jogos encontrados para a data ${date}.`);
+    // console.log(`\n⚽ [ESPN] Grade carregada com sucesso: ${grade.length} jogos encontrados para a data ${date}.`);
 
     // ---------------------------------------------------------
     // ETAPA 2: Acionar o Motor de Inteligência Analítica em PARALELO
@@ -388,21 +431,26 @@ export default async function handler(req, res) {
       };
 
       await setCache(`SNIPER_V12:${date}`, analisePronta); // Lembra de mudar a chave para V12 para testar!
-      console.log(`✅ [SUCESSO] Grade completa analisada em PARALELO e salva no Redis.\n`);
+      console.log(`\n✅ [SUCESSO] Grade completa analisada e salva no Redis.\n`);
     } else {
+      console.log('\n=================================================');
       console.log(`⚡ [CACHE] Leitura instantânea do Redis para a data ${date}.\n`);
     }
+
 
     // ---------------------------------------------------------
     // ETAPA 3: Devolver o resultado pronto para o front
     // ---------------------------------------------------------
+    // 🔥 MESCLANDO OS DADOS COM AS ODDS:
+    const sectionsComOdds = await getEnrichedSections(analisePronta.sections, date, grade);
+
     return res.status(200).json({
       status: "ok",
       date,
       generatedAt: new Date().toISOString(),
       expiresAt: analisePronta.expiresAt, // 🔥 Envia o tempo para o Front-end
       source: { grade: "ESPN", ai: `Motor IA: ${MODEL_SNIPER} + Lotes Turbo Paralelo` },
-      sections: analisePronta.sections,
+      sections: sectionsComOdds, // Devolvemos os cards já com as Odds Reais embutidas!
       resultado: analisePronta.resultado
     });
 

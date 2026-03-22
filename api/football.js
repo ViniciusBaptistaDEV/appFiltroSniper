@@ -7,31 +7,35 @@
 // ==========================================
 const TIERED_LEAGUES = {
     // 🌟 TIER 1: Elite Absoluta (Prioridade Máxima)
-    "eng.1": 1,
-    "esp.1": 1,
-    "uefa.champions": 1,
-    "conmebol.libertadores": 1,
-    "bra.1": 1,
-    "fifa.world": 1,
+    "eng.1": 1,                // Premier League (Inglaterra)
+    "esp.1": 1,                // LaLiga (Espanha)
+    "uefa.champions": 1,       // UEFA Champions League
+    "conmebol.libertadores": 1,// CONMEBOL Libertadores
+    "bra.1": 1,                // Brasileirão Série A
+    "ger.1": 1,                // Bundesliga (Alemanha)
+
 
     // ⭐ TIER 2: Alto Nível Continental e Nacional
-    "ita.1": 2,
-    "ger.1": 2,
-    "fra.1": 2,
-    "por.1": 2,
-    "uefa.europa": 2,
-    "uefa.euro": 2,
-    "conmebol.america": 2,
+    "ita.1": 2,                // Serie A (Itália)
+    "fra.1": 2,                // Ligue 1 (França)
+    "por.1": 2,                // Primeira Liga (Portugal)
+    "tur.1": 2,                // Süper Lig (Turquia)
+    "uefa.europa": 2,          // UEFA Europa League
+    "uefa.euro": 2,            // Eurocopa (UEFA Euro)
+    "conmebol.america": 2,     // Copa América
+    "fifa.world": 2,           // Copa do Mundo FIFA
 
     // ⚔️ TIER 3: Copas e Ligas Secundárias (Só entram se sobrar vaga)
-    "eng.fa": 3,
-    "esp.copa_del_rey": 3,
-    "ita.coppa_italia": 3,
-    "ger.dfb_pokal": 3,
-    "fra.coupe_de_france": 3,
-    "conmebol.sudamericana": 3,
-    "sco.1": 3,
-    "caf.nations": 3
+    "eng.fa": 3,               // FA Cup (Copa da Inglaterra)
+    "eng.league_cup": 3,       // Carabao Cup / EFL Cup (Inglaterra)
+    "uefa.conf": 3,            // UEFA Conference League
+    "esp.copa_del_rey": 3,     // Copa del Rey (Espanha)
+    "ita.coppa_italia": 3,     // Coppa Italia (Itália)
+    "ger.dfb_pokal": 3,        // DFB-Pokal (Copa da Alemanha)
+    "fra.coupe_de_france": 3,  // Coupe de France (França)
+    "conmebol.sudamericana": 3,// CONMEBOL Sudamericana
+    "sco.1": 3,                // Scottish Premiership (Liga da Escócia)
+    "caf.nations": 3           // Africa Cup of Nations (CAN)
 };
 
 const LIMITE_JOGOS_POR_DIA = 15;
@@ -62,6 +66,7 @@ export async function buscarJogos(date, options = {}) {
     if (isFresh(cached)) return cached.value;
 
     const dataESPN = date.replace(/-/g, "");
+    console.log('\n=================================================');
     console.log(`\n🔎 Grade de jogos encontrados na ESPN para: ${date}...`);
 
     // 1) Scoreboards por liga (paralelo)
@@ -110,7 +115,7 @@ export async function buscarJogos(date, options = {}) {
     // ==========================================
     // 🔪 A FACA DO SNIPER: APLICAÇÃO DOS TIERS E CORTE
     // ==========================================
-    console.log(`\n⚽ [ESPN] Encontrados ${simplificados.length} jogos para a data ${date}.`);
+    console.log(`\n⚽ [ESPN] Encontrados ${simplificados.length} jogos.`);
 
     // 1. FILTRO DO RELÓGIO: Remove jogos que já começaram ou terminaram
     const agora = Date.now();
