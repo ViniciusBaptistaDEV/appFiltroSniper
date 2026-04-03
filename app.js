@@ -82,6 +82,18 @@ document.getElementById('btn-login').addEventListener('click', async () => {
     }
 });
 
+// ==========================================
+// Permitir login pressionando ENTER
+// ==========================================
+// Colocamos essa lógica logo abaixo, de forma independente:
+['login-user', 'login-pass'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Evita qualquer bug de recarregar a tela
+            document.getElementById('btn-login').click(); // Aciona o bloco de clique lá de cima
+        }
+    });
+});
 
 async function analisar() {
     const dateEl = document.getElementById("dateInput");
@@ -216,17 +228,34 @@ async function analisar() {
         atualizarDisplayCronometro(data.expiresAt);
 
         // Preferência: sections estruturadas (novo formato)
-        if (Array.isArray(data.sections) && data.sections.length > 0) {
-            renderSectionsAsCards(data.sections);
-            resultCard.classList.remove("hidden");
-            return;
+        if (Array.isArray(data.sections)) {
+            if (data.sections.length > 0) {
+                // Sucesso absoluto: Tem cards!
+                renderSectionsAsCards(data.sections);
+                resultCard.classList.remove("hidden");
+                return;
+            } else {
+                // A lista veio VAZIA (0 cards). Vamos descobrir o porquê:
+
+                // 🔥 A MÁGICA ATUALIZADA: A ESPN disse que não tem jogo hoje?
+                if (data.resultado && data.resultado.includes("Grade de jogos vazia")) {
+                    // É um dia normal sem jogos. Mostra a mensagem amigável no card!
+                    renderRawTextAsCards(data.resultado);
+                    resultCard.classList.remove("hidden");
+                    return;
+                }
+                
+                // Não é dia vazio, então a IA quebrou todos os lotes!
+                else {
+                    throw new Error("Falha total: A IA não conseguiu gerar nenhum card válido.");
+                }
+            }
         }
 
-        // Fallback: texto único (compatibilidade)
-        const textoIA = (typeof data.resultado === "string" && data.resultado.trim().length > 0)
-            ? data.resultado
-            : (data.error || "⚠️ Nenhum conteúdo retornado pela análise.");
-        renderRawTextAsCards(textoIA);
+        // Fallback genérico caso a API mude de formato
+        if (data.error) throw new Error(data.error);
+
+        renderRawTextAsCards(data.resultado || "⚠️ Nenhum conteúdo retornado pela análise.");
         resultCard.classList.remove("hidden");
 
     } catch (error) {

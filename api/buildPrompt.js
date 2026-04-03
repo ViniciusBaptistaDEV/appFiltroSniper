@@ -398,7 +398,6 @@ REGRA ABSOLUTA:
 • Jogo adiado/sem data definida.
 • Jogo inexistente na grade oficial.
 • Confirmação de elenco 100% reserva/alternativo para ambos os times (ou para o favorito no caso de mercado de vitória).
-• Liga fora do escopo permitido.
 Caso ocorra:
 → Listar em "JOGOS ABORTADOS" com explicação objetiva no campo do cenário tático.
 
@@ -412,14 +411,12 @@ Caso ocorra:
 • É ESTRITAMENTE PROIBIDO listar, citar ou nomear os sites e fontes de onde os dados foram retirados. Entregue apenas a análise.
 • Exemplo de anotação no campo do cenário tático:
   – “FALLBACK ATIVADO: últimos 5 jogos (70%) + temporada ${temporadaAnterior} (30%).”
-  
-O escopo permitido de análise é EXCLUSIVAMENTE:
-• Elite Europeia e Brasil: Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Liga Portugal, Premiership (Escócia) e Brasileirão Série A.
-• Competições Continentais: UEFA Champions League e UEFA Europa League.
-• Copas Nacionais de Elite: FA Cup (Inglaterra), Copa del Rey (Espanha), Coppa Italia, DFB-Pokal (Alemanha) e Copa da França.
-• Torneios de Seleções: Copa do Mundo, Eurocopa, Copa Africana de Nações e Copa América.
-Regra de Exclusão Absoluta (PROIBIDO ANALISAR):
-• Campeonatos Estaduais, Ligas Secundárias (ex.: Championship, La Liga 2), Categorias de Base, Amistosos e ligas não listadas acima.
+
+🚨 AUTORIDADE DA GRADE (LEIA ATENTAMENTE):
+TODOS os jogos fornecidos no JSON abaixo já foram rigorosamente pré-filtrados, aprovados e selecionados pelo meu sistema backend. 
+Você DEVE analisar absolutamente TODOS os jogos enviados. 
+NENHUM jogo deve ser classificado como "fora de escopo", "liga desconhecida" ou ignorado por causa da sua liga ou relevância. 
+Se o jogo está no JSON, ele é válido.
 
 A data alvo é: ${dataBR}
 Abaixo está a lista de jogos da ESPN:

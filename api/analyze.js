@@ -55,6 +55,69 @@ async function setCache(key, value) {
 }
 
 
+/* =======================================================================================
+  SISTEMA DE LOGS DE ERRO NO REDIS (COM AUTODESTRUIÇÃO)
+======================================================================================= */
+async function salvarLogErroRedis(contexto, erroDetalhe) {
+
+  if (!REDIS_URL || !REDIS_TOKEN) return;
+
+  try {
+
+    const agora = new Date();
+    const timestampMs = agora.getTime(); // Ex: 1775250000000 (Garante que nunca vai repetir a chave)
+
+    // 🔥 MÁGICA DO HORÁRIO: Força o fuso do Brasil e formata para dd/mm/aaaa - 00:00:00
+    const dataFormatada = agora.toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }).replace(', ', ' - '); // Troca a vírgula padrão do JS por um traço
+
+    // 1. Chave Única (Não mistura os logs)
+    const chaveLog = `LOG_ERRO_SNIPER:${contexto}:${timestampMs}`;
+
+    // Extraindo os textos do erro antes de montar o payload
+    const textoMensagem = erroDetalhe?.message || String(erroDetalhe);
+    const textoStack = erroDetalhe?.stack || "Sem detalhes adicionais";
+
+    // 2. O conteúdo que você vai ler depois
+    const payloadLog = {
+      dataErro: dataFormatada,
+      origem: contexto, // Diz se foi o Gemini, a ESPN, as Odds ou um Crash Global
+      // 🔥 MÁGICA: Corta o texto onde tem '\n' e transforma em uma lista organizada
+      mensagem: textoMensagem.split('\n').map(linha => linha.trim()).filter(Boolean),
+      stack: textoStack.split('\n').map(linha => linha.trim()).filter(Boolean)
+    };
+
+    // 3. Tempo de expiração em segundos (Ex: 3 dias = 259.200 segundos - 2 dias = 172800 segundos - 1 dia = 86400 segundos)
+    const tempoExpiracaoSegundos = 86400;
+
+    // Envia para o Upstash usando o parâmetro ?EX= para autodestruição
+    await fetch(`${REDIS_URL}/set/${chaveLog}?EX=${tempoExpiracaoSegundos}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${REDIS_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payloadLog)
+    });
+
+    console.log(`\n\n🚨 [SISTEMA] Falha no Lote ${contexto}. Log gravado no Redis: ${chaveLog}\n`);
+
+  } catch (e) {
+
+    console.error("\n\nFalha ao tentar salvar o log no Redis:", e);
+    console.error("\n\nDetalhes do erro:", e.message);
+
+  }
+}
+
+
 /* ========================================================================================
   CACHE DE ODDS REAIS (CACHE DE 10 MINUTOS INDEPENDENTE)
 * ====================================================================================== */
@@ -298,26 +361,45 @@ export default async function handler(req, res) {
         console.log(`⏳ [GEMINI] Disparando Lote ${index + 1} de ${lotes.length}...`);
 
         try {
+
+          // 🔥 INJEÇÃO DE ERRO PARA TESTE: 
+          // Vai forçar o Lote 1 a cair direto no 'catch' aqui embaixo.
+          // if (index === 0) {
+          //   throw new Error("TESTE SNIPER: Simulando uma falha de conexão com a IA no Lote 1");
+          // }
+
           const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
 
-          // 🔥 ADICIONE ESTAS 3 LINHAS AQUI PARA DEPURAR:
+          // 🔥 3 LINHAS PARA DEPURAR OS JSON's QUE O GEMINI VAI RETORNAR:
           console.log(`\n=== 🕵️‍♂️ RESPOSTA CRUA DA IA (LOTE ${index + 1}) ===`);
           console.log(geminiResponse);
           console.log(`=========================================\n`);
 
           const parsed = safeJsonParseFromText(geminiResponse);
+
           if (parsed && parsed.sections) {
             return parsed.sections; // Retorna os cards desse lote
           }
+
         } catch (err) {
+
           console.error(`🚨 Erro no Lote ${index + 1}:`, err.message);
+
+          // 🔥 A MÁGICA AQUI: Salva o log lá no Redis para você ler depois!
+          // Usamos index + 1 para o log mostrar "Lote 1" em vez de "Lote 0"
+          await salvarLogErroRedis(`GEMINI_LOTE_${index + 1}`, err);
+
         } finally {
+
           // 🔥 ATUALIZA O PROGRESSO REAL A CADA LOTE FINALIZADO
           lotesConcluidos++;
           const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
           await setCache(`PROGRESS:${date}`, porcentagem);
+
         }
+
         return []; // Se um lote der erro, retorna vazio para não quebrar os outros
+
       });
 
 
@@ -455,7 +537,13 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
+
     console.error("🚨 ERRO CRÍTICO NO PIPELINE:", error);
+
+    // 🔥 Captura falhas fatais do sistema e envia pro Redis
+    await salvarLogErroRedis("CRASH_GLOBAL_SISTEMA", error);
+
     return res.status(500).json({ error: "Erro interno na análise", detalhe: error.message });
+
   }
 }

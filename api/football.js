@@ -126,7 +126,7 @@ export async function buscarJogos(date, options = {}) {
 
     const jogosPassados = simplificados.length - jogosFuturos.length;
     if (jogosPassados > 0) {
-        console.log(`\n⏰ [SISTEMA] Descartando ${jogosPassados} ${jogosPassados.length > 1 ? "jogos" : "jogo"}  que já começaram/terminaram.`);
+        console.log(`\n⏰ [SISTEMA] Descartando ${jogosPassados} ${jogosPassados > 1 ? "jogos" : "jogo"} que já começaram/terminaram.`);
     }
 
     // Atualiza a lista apenas com os jogos válidos

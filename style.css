@@ -588,6 +588,26 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 
+/* ==================================================================
+    CENTRALIZAR CARDS SOLITÁRIOS (ERROS, GRADE VAZIA OU 1 SÓ JOGO)
+================================================================== */
+#resultado>*:only-child {
+    grid-column: 1 / -1;
+    /* Manda o card ignorar as colunas e ocupar a tela toda */
+    margin: 0 auto;
+    /* Centraliza a caixinha horizontalmente */
+    max-width: 500px;
+    /* Evita que o card fique esticado/gigante no Desktop */
+    width: 100%;
+    /* Garante que fique bonito no celular */
+    text-align: center;
+    /* Centraliza o texto (ícones e mensagens) */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
 
 /* ========================================================================================
     MEDIA QUERIES (ORGANIZADAS POR TAMANHO DE TELA)
