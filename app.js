@@ -692,21 +692,31 @@ function atualizarDisplayCronometro(tempoExpiracao) {
     }, 1000);
 }
 
-// Pergunta ao Redis (Backend) quanto tempo falta para o cache expirar
+
+/* =========================================================
+    Pergunta ao Redis (Backend) quanto tempo falta para o cache expirar
+   ========================================================= */
 async function verificarCacheRedis(dataSelecionada) {
+
+    const container = document.getElementById('timerContainer');
+    const display = document.getElementById('countdownTimer');
+    const btnAnalisar = document.getElementById("btnAnalisar"); // 🔥 Puxa o botão
 
     // 🛑 TRAVA: Se não tem usuário logado, fica quieto e não faz nada!
     if (!sessionStorage.getItem('sniper_user') || !sessionStorage.getItem('sniper_pass')) {
         return;
     }
 
-    const container = document.getElementById('timerContainer');
-    const display = document.getElementById('countdownTimer');
-
     container.style.display = 'block';
     display.innerHTML = "Sincronizando...";
     display.style.color = "#10b981";
     clearInterval(timerInterval);
+
+    if (btnAnalisar) {
+        btnAnalisar.disabled = true;
+        btnAnalisar.style.cursor = "not-allowed"; // Mostra o mouse de proibido
+        btnAnalisar.style.opacity = "0.6"; // Dá uma apagadinha no botão
+    }
 
     try {
         const response = await fetch("/api/analyze", {
@@ -730,14 +740,38 @@ async function verificarCacheRedis(dataSelecionada) {
         const data = await response.json();
 
         if (data.expiresAt) {
+
             atualizarDisplayCronometro(data.expiresAt);
+
+            // 🔥 DESTRAVA o botão quando o servidor responder
+            if (btnAnalisar) {
+                setTimeout(() => {
+                    btnAnalisar.disabled = false;
+                    btnAnalisar.style.cursor = "pointer";
+                    btnAnalisar.style.opacity = "1";
+                }, 1000); // 1000 milissegundos = 1 segundo
+            }
+
         } else {
+
             display.innerHTML = "Nova Análise Liberada";
             display.style.color = "#10b981";
+
+            // 🔥 DESTRAVA o botão quando o servidor responder
+            if (btnAnalisar) {
+                    btnAnalisar.disabled = false;
+                    btnAnalisar.style.cursor = "pointer";
+                    btnAnalisar.style.opacity = "1";
+            }
+
         }
+
     } catch (error) {
+
         display.innerHTML = "Sistema Pronto";
+
     }
+
 }
 
 
