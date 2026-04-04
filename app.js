@@ -244,7 +244,7 @@ async function analisar() {
                     resultCard.classList.remove("hidden");
                     return;
                 }
-                
+
                 // Não é dia vazio, então a IA quebrou todos os lotes!
                 else {
                     throw new Error("Falha total: A IA não conseguiu gerar nenhum card válido.");
@@ -444,7 +444,10 @@ function renderSectionsAsCards(sections) {
     }).join("");
 }
 
-/** Fallback: divide um texto longo em blocos usando cabeçalhos padrão */
+
+/* =========================================================
+    Fallback: divide um texto longo em blocos usando cabeçalhos padrão
+   ========================================================= */
 function renderRawTextAsCards(texto) {
     const normalized = String(texto || "").trim();
     const blocos = normalized.split(/(?=^(\u{1F3AF}|\u{1F3C6}|⚽|📝)\s)/gmu).filter(Boolean);
@@ -472,7 +475,10 @@ function renderRawTextAsCards(texto) {
     document.getElementById("resultado").innerHTML = cards.join("");
 }
 
-/** Utilitários de UI */
+
+/* =========================================================
+    Utilitários de UI
+   ========================================================= */
 function flagToClass(flag) {
     const f = String(flag || "").toUpperCase();
     if (f.includes("VERDE")) return "verde";
@@ -498,14 +504,9 @@ function escapeHtml(str) {
 }
 
 
-/* ====== MODELO PREMIUM - BOTÃO COPIAR ANALISE ======
-/**
- * MODO PREMIUM — Texto profissional com:
- * ✔ Quadradinhos coloridos por flag
- * ✔ Emoji do tipo ao lado do grupo
- * ✔ Confiança com cor (🟢 🟡 🔴)
- * ✔ Separador premium sem gradiente (linha limpa)
- */
+/* =========================================================
+    BOTÃO COPIAR ANALISE
+   ========================================================= */
 function copiarTexto() {
     const cards = document.querySelectorAll(".sniper-card");
     const dateInput = document.getElementById("dateInput").value;
@@ -514,107 +515,138 @@ function copiarTexto() {
         ? dateInput.split("-").reverse().join("/")
         : "DATA NÃO INFORMADA";
 
-    // Cabeçalho Premium
     let textoFinal = `\n📅 *𝐀𝐍𝐀́𝐋𝐈𝐒𝐄 𝐃𝐎 𝐃𝐈𝐀 — _${dataFormatada}_*\n`;
-    // textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-    // textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     textoFinal += `===============================\n\n`;
 
     cards.forEach(card => {
+        // 🔥 TRUQUE MESTRE: Pega todo o texto visível do card em forma de linhas limpas
+        const linhasCard = card.innerText.split('\n').map(l => l.trim()).filter(l => l);
 
-        // O .toUpperCase() garante que "Vermelha" ou "vermelha" sejam lidos corretamente
-        const flag = (card.querySelector(".card-side-badge")?.innerText || "").toUpperCase();
+        const badge = card.querySelector(".card-side-badge");
+        const flag = (badge?.innerText || "").toUpperCase();
 
-        // 🔥 TRAVA SNIPER: Se a flag for vermelha, pula este card e não copia
-        if (flag.includes("VERMELHA")) {
-            return; // O return dentro de um forEach funciona como um "continue"
-        }
+        // Ignora vermelhos
+        if (flag.includes("VERMELHA")) return;
 
-        // Dados básicos
-        const grupo = card.querySelector(".match-league")?.innerText || "";
+        // Limpa emojis duplicados nativamente com \p{Emoji}
+        const grupoBruto = card.querySelector(".match-league")?.innerText || "";
+        const grupoLimpo = grupoBruto.replace(/[\p{Emoji}\p{Emoji_Component}]/gu, '').trim();
+
         const titulo = card.querySelector(".match-title")?.innerText || "";
         const inicio = card.querySelector(".match-time")?.innerText || "";
 
-        const oportunidade = card.querySelector(".status-success")?.innerText.replace("🎯 ", "") || "Abortado";
+        const oportunidade = card.querySelector(".status-success")?.innerText.replace("🎯 ", "").trim() || "";
         const alvo = card.querySelector(".target-info")?.innerText || "";
 
         const ratItems = card.querySelectorAll(".rat-item");
-        const momento = ratItems[0]?.innerText.replace(/^(Momento|Lista):/i, "").trim() || "";
+        let momento = ratItems[0]?.innerText.replace(/^(Momento|Lista):/i, "").trim() || "";
         const contexto = ratItems[1]?.innerText.replace(/^Contexto:/i, "").trim() || "";
 
-        let confianca = card.querySelector(".confidence-label")?.innerText.replace("Confiança:", "").trim() || "";
+        const confText = card.querySelector(".confidence-label")?.innerText || "";
+        const confNum = parseInt(confText.replace(/\D/g, "")) || 0;
 
-        // Converte confiança em número e aplica o emoji correto
-        const confiancaNum = parseInt(confianca.replace("%", "").trim());
-        let confEmoji = "🟢";
-        if (confiancaNum < 70) confEmoji = "🔴";
-        else if (confiancaNum < 85) confEmoji = "🟡";
-
-        // Quadradinho colorido pela flag
-        let quadrado = "⬜";
-        if (flag.includes("VERDE")) quadrado = "🟩";
-        if (flag.includes("AMARELA")) quadrado = "🟨";
-        if (flag.includes("MÚLTIPLA")) quadrado = "🟦";
-
-        // Emoji do tipo ao lado do grupo
+        // Lógica de Emojis Visuais
+        let quadrado = "🟩";
         let emojiTipo = "🎯";
-        if (grupo.toUpperCase().includes("VITÓRIAS")) emojiTipo = "🏆";
-        if (grupo.toUpperCase().includes("GOLS")) emojiTipo = "⚽";
-        if (grupo.toUpperCase().includes("AMBAS")) emojiTipo = "⚽";
-        if (grupo.toUpperCase().includes("ESCANTEIOS")) emojiTipo = "💎";
-        if (flag.includes("MÚLTIPLA")) emojiTipo = "🎫";
 
-        // Bloco premium final
-        textoFinal += `${quadrado} *${emojiTipo} ${grupo}*\n`;
-        textoFinal += `*${titulo}*\n`;
-        textoFinal += `${inicio}\n`;
-        textoFinal += `🎯 *${oportunidade}*\n`;
-        textoFinal += `🎯 *${alvo}*\n\n`;
+        if (flag.includes("AMARELA")) quadrado = "🟨";
 
-        textoFinal += `📌 *Momento:* ${momento}\n`;
-        textoFinal += `📊 *Contexto:* ${contexto}\n`;
-        textoFinal += `📈 *Confiança:* ${confEmoji} ${confianca}\n`;
+        if (flag.includes("MÚLTIPLA") || titulo.includes("BILHETE")) {
+            quadrado = "🟦";
+            emojiTipo = "🎫";
+            // 🔥 Formatação Premium para o Bilhete Combinado (Lista com pontos)
+            if (momento) {
+                momento = '\n' + momento.split('\n').filter(l => l.trim()).map(l => `▪️ ${l.trim()}`).join('\n');
+            }
+        } else {
+            if (grupoLimpo.includes("VITÓRIAS")) emojiTipo = "🏆";
+            else if (grupoLimpo.includes("GOLS") || grupoLimpo.includes("AMBAS")) emojiTipo = "⚽";
+            else if (grupoLimpo.includes("ESCANTEIOS")) emojiTipo = "💎";
+        }
 
-        // 🔥 NOVAS ODDS NO WHATSAPP (Apenas Verde e Amarelo):
-        if (flag.includes("VERDE") || flag.includes("AMARELA")) {
-            const probIA = parseConfidenceToProb(confianca);
-            const oddJusta = fairOddsFromProb(probIA);
+        let confEmoji = "🟢";
+        if (confNum < 70) confEmoji = "🔴";
+        else if (confNum < 85) confEmoji = "🟡";
 
-            if (oddJusta) {
-                const oddRecomendada = oddJusta * (1 + FOLGA_PCT);
-                textoFinal += `⚖️ *Odd Justa:* ${formatOdds(oddJusta)}\n`;
-                textoFinal += `🎯 *Odd Recomendada:* ${formatOdds(oddRecomendada)}\n`;
+        // Montagem do Corpo
+        textoFinal += `${quadrado} *${emojiTipo} ${grupoLimpo}*\n`;
+        if (titulo) textoFinal += `*${titulo}*\n`;
+        if (inicio) textoFinal += `*${inicio}*\n`;
+
+        if (oportunidade) textoFinal += `\n🎯 *Oportunidade: ${oportunidade}*\n`;
+        if (alvo) textoFinal += `🎯 *${alvo}*\n\n`;
+
+        if (momento) textoFinal += `📌 *Momento:* ${momento}\n`;
+        if (contexto) textoFinal += `📊 *Contexto:* ${contexto}\n`;
+        if (confNum > 0) textoFinal += `\n📈 *Confiança:* ${confEmoji} ${confNum}%\n`;
+
+        // 🔥 O RADAR DE ODDS (À prova de falhas)
+        if (!flag.includes("MÚLTIPLA")) {
+            // Caça a Odd Mínima
+            const idxOdd = linhasCard.findIndex(l => l.toLowerCase().includes("odd mínima"));
+            if (idxOdd !== -1 && linhasCard[idxOdd + 1]) {
+                const valorOdd = linhasCard[idxOdd + 1];
+                if (/[0-9]/.test(valorOdd)) { // Garante que puxou um número e não texto
+                    textoFinal += `⚖️ *Odd Mínima:* ${valorOdd}\n`;
+                }
+            }
+
+            // Caça SportingBet e Betnacional
+            const idxSB = linhasCard.findIndex(l => l.toLowerCase().includes("sportingbet"));
+            const idxBN = linhasCard.findIndex(l => l.toLowerCase().includes("betnacional"));
+
+            if (idxSB !== -1 || idxBN !== -1) {
+
+                textoFinal += `\n━━━━━━━━━━`;
+                textoFinal += `\n💰 *Odd nas Casas:*\n`;
+
+                // Trata SportingBet
+                if (idxSB !== -1 && linhasCard[idxSB + 1]) {
+                    const valSB = linhasCard[idxSB + 1];
+                    if (/[0-9]/.test(valSB)) {
+                        textoFinal += `🔵 *SportingBet:* ${valSB}\n`;
+                    } else if (valSB.toLowerCase().includes("indispon") || valSB.includes("--")) {
+                        textoFinal += `🔵 *SportingBet:* Indisponível\n`;
+                    }
+                }
+
+                // Trata Betnacional
+                if (idxBN !== -1 && linhasCard[idxBN + 1]) {
+                    const valBN = linhasCard[idxBN + 1];
+                    if (/[0-9]/.test(valBN)) {
+                        textoFinal += `🟠 *Betnacional:* ${valBN}\n`;
+                    } else if (valBN.toLowerCase().includes("indispon") || valBN.includes("--")) {
+                        textoFinal += `🟠 *Betnacional:* Indisponível\n`;
+                    }
+                }
+
             }
         }
 
-        // 🔥 NOVAS ODDS REAIS NO WHATSAPP:
-        if (sec.odds && (sec.odds.sportingbet || sec.odds.betnacional)) {
-            const getPrice = (v) => v ? (typeof v === 'number' ? v.toFixed(2) : (v.price ? parseFloat(v.price).toFixed(2) : v)) : null;
-            const sb = getPrice(sec.odds.sportingbet);
-            const bn = getPrice(sec.odds.betnacional);
-
-            textoFinal += `\n💰 *Odds nas Casas:*\n`;
-            if (sb) textoFinal += `🔵 SportingBet: ${sb}\n`;
-            if (bn) textoFinal += `🟠 Betnacional: ${bn}\n`;
-        }
-
-        // 🔥 Separador Premium (sem gradiente)
-        textoFinal += `━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        textoFinal += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
     });
 
-    // Feedback no botão
-    const btn = document.getElementById("btnCopiar");
+    if (textoFinal.length < 150) {
+        alert("Nenhuma análise válida encontrada para copiar.");
+        return;
+    }
 
     navigator.clipboard.writeText(textoFinal).then(() => {
-        const original = btn.innerText;
-        btn.innerText = "✅ Copiado!";
-        btn.style.background = "#16a34a";
-        setTimeout(() => {
-            btn.innerText = original;
-            btn.style.background = "";
-        }, 3000);
+        const btn = document.getElementById("btnCopiar");
+        if (btn) {
+            const original = btn.innerText;
+            btn.innerText = "✅ Copiado!";
+            btn.style.background = "#16a34a";
+            setTimeout(() => {
+                btn.innerText = original;
+                btn.style.background = "";
+            }, 3000);
+        }
+    }).catch(err => {
+        console.error("Erro ao copiar:", err);
     });
 }
+
 
 /* =========================================================
     FUNÇÕES DO CRONÔMETRO MINIMALISTA E COMUNICAÇÃO COM REDIS
