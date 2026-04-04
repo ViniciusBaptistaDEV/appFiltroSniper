@@ -95,7 +95,7 @@ async function salvarLogErroRedis(contexto, erroDetalhe) {
     };
 
     // 3. Tempo de expiração em segundos (Ex: 3 dias = 259.200 segundos - 2 dias = 172800 segundos - 1 dia = 86400 segundos)
-    const tempoExpiracaoSegundos = 86400;
+    const tempoExpiracaoSegundos = 172800;
 
     // Envia para o Upstash usando o parâmetro ?EX= para autodestruição
     await fetch(`${REDIS_URL}/set/${chaveLog}?EX=${tempoExpiracaoSegundos}`, {
