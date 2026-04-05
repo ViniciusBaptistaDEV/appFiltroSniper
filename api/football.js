@@ -9,17 +9,17 @@ const TIERED_LEAGUES = {
     // 🌟 TIER 1: Elite Absoluta (Prioridade Máxima)
     "eng.1": 1,                // Premier League (Inglaterra)
     "esp.1": 1,                // LaLiga (Espanha)
+    "fra.1": 1,                // Ligue 1 (França)
+    "ger.1": 1,                // Bundesliga (Alemanha)
     "uefa.champions": 1,       // UEFA Champions League
     "conmebol.libertadores": 1,// CONMEBOL Libertadores
-    "bra.1": 1,                // Brasileirão Série A
-    "ger.1": 1,                // Bundesliga (Alemanha)
-
 
     // ⭐ TIER 2: Alto Nível Continental e Nacional
+    "bra.1": 2,                // Brasileirão Série A
     "ita.1": 2,                // Serie A (Itália)
-    "fra.1": 2,                // Ligue 1 (França)
     "por.1": 2,                // Primeira Liga (Portugal)
     "tur.1": 2,                // Süper Lig (Turquia)
+    "sco.1": 2,                // Scottish Premiership (Liga da Escócia)
     "uefa.europa": 2,          // UEFA Europa League
     "uefa.euro": 2,            // Eurocopa (UEFA Euro)
     "conmebol.america": 2,     // Copa América
@@ -34,7 +34,6 @@ const TIERED_LEAGUES = {
     "ger.dfb_pokal": 3,        // DFB-Pokal (Copa da Alemanha)
     "fra.coupe_de_france": 3,  // Coupe de France (França)
     "conmebol.sudamericana": 3,// CONMEBOL Sudamericana
-    "sco.1": 3,                // Scottish Premiership (Liga da Escócia)
     "caf.nations": 3           // Africa Cup of Nations (CAN)
 };
 

@@ -569,7 +569,7 @@ function copiarTexto() {
         else if (confNum < 85) confEmoji = "🟡";
 
         // Montagem do Corpo
-        textoFinal += `${quadrado} *${emojiTipo} ${grupoLimpo}*\n`;
+        textoFinal += `*${emojiTipo} ${grupoLimpo}*\n`;
         if (titulo) textoFinal += `*${titulo}*\n`;
         if (inicio) textoFinal += `*${inicio}*\n`;
 
@@ -587,7 +587,7 @@ function copiarTexto() {
             if (idxOdd !== -1 && linhasCard[idxOdd + 1]) {
                 const valorOdd = linhasCard[idxOdd + 1];
                 if (/[0-9]/.test(valorOdd)) { // Garante que puxou um número e não texto
-                    textoFinal += `⚖️ *Odd Mínima:* ${valorOdd}\n`;
+                    textoFinal += `⚖️ *Odd Mínima Recomendada:* ${valorOdd}\n`;
                 }
             }
 
@@ -597,14 +597,14 @@ function copiarTexto() {
 
             if (idxSB !== -1 || idxBN !== -1) {
 
-                textoFinal += `\n━━━━━━━━━━`;
+                textoFinal += `\n━━━━━━━━━━━━━━━`;
                 textoFinal += `\n💰 *Odd nas Casas:*\n`;
 
                 // Trata SportingBet
                 if (idxSB !== -1 && linhasCard[idxSB + 1]) {
                     const valSB = linhasCard[idxSB + 1];
                     if (/[0-9]/.test(valSB)) {
-                        textoFinal += `🔵 *SportingBet:* ${valSB}\n`;
+                        textoFinal += `🔵 *Sportingbet:* ${valSB}\n`;
                     } else if (valSB.toLowerCase().includes("indispon") || valSB.includes("--")) {
                         textoFinal += `🔵 *SportingBet:* Indisponível\n`;
                     }
