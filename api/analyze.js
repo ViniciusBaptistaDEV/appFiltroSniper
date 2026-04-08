@@ -241,7 +241,7 @@ function fatiarArray(array, tamanho) {
 }
 
 // ATENÇÃO: Aumenta o tempo limite da Vercel para permitir processamento longo (até 60 segundos)
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 
 
@@ -352,63 +352,108 @@ export default async function handler(req, res) {
 
       console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de ${tamanhoLote} jogos cada...`);
 
-      // Cria as "tarefas" para rodarem todas ao mesmo tempo (Processamento Paralelo)
-      const tarefas = lotes.map(async (lote, index) => {
-        // Pequeno atraso (stagger) de 1,5 segundo entre cada disparo para a Google não bloquear por "Spam"
-        await new Promise(resolve => setTimeout(resolve, index * 1500));
+
+
+      // =========================================================================
+      // 🔥 MOTOR SEQUENCIAL (FILA INDIANA) - TENTATIVAS AUTOMÁTICAS - 1 RETRY
+      // =========================================================================
+      
+      // Array que vai guardar os cards prontos de todos os lotes em ordem
+      const resultadosSequenciais = [];
+
+      // Passa por cada lote de jogos (ex: Lote 1, Lote 2, Lote 3...)
+      for (let index = 0; index < lotes.length; index++) {
+        const lote = lotes[index];
         const prompt = montarPromptSniper(date, lote);
 
-        console.log(`⏳ [GEMINI] Disparando Lote ${index + 1} de ${lotes.length}...`);
+        console.log(`\n⏳ [GEMINI] Iniciando processamento do Lote ${index + 1} de ${lotes.length}...`);
 
-        try {
+        // Variáveis de controle do sistema de Repetição (Retry)
+        let tentativas = 0;
+        const maxTentativas = 2; // O sistema vai fazer 1 tentativa normal + 1 chance extra (retry)
+        let sucessoNoLote = false; // Flag para avisar quando a IA responder corretamente
 
-          // 🔥 INJEÇÃO DE ERRO PARA TESTE: 
-          // Vai forçar o Lote 1 a cair direto no 'catch' aqui embaixo.
-          // if (index === 0) {
-          //   throw new Error("TESTE SNIPER: Simulando uma falha de conexão com a IA no Lote 1");
-          // }
+        // Fica rodando em loop enquanto não atingir o limite de tentativas E não tiver sucesso
+        while (tentativas < maxTentativas && !sucessoNoLote) {
+          try {
+            tentativas++; // Conta em qual tentativa estamos (1 ou 2)
+            
+            // Se for a tentativa extra, avisa no log da Vercel
+            if (tentativas > 1) {
+                console.log(`🔄 [RETRY] Segunda e última tentativa para o Lote ${index + 1}...`);
+            }
 
-          const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
+            // Dispara o texto para a IA do Google e aguarda a resposta
+            const geminiResponse = await callGeminiJSON(prompt, MODEL_SNIPER, true);
 
-          // 🔥 3 LINHAS PARA DEPURAR OS JSON's QUE O GEMINI VAI RETORNAR:
-          console.log(`\n=== 🕵️‍♂️ RESPOSTA CRUA DA IA (LOTE ${index + 1}) ===`);
-          console.log(geminiResponse);
-          console.log(`=========================================\n`);
+            // Log de depuração para vermos o que a IA mandou antes de tratar os dados
+            console.log(`\n=== 🕵️‍♂️ RESPOSTA CRUA DA IA (LOTE ${index + 1}) ===`);
+            console.log(geminiResponse);
+            console.log(`=========================================\n`);
 
-          const parsed = safeJsonParseFromText(geminiResponse);
+            // Tenta transformar o texto da IA em um objeto JSON válido
+            const parsed = safeJsonParseFromText(geminiResponse);
 
-          if (parsed && parsed.sections) {
-            return parsed.sections; // Retorna os cards desse lote
+            // Se o JSON for válido e contiver os cards (sections)...
+            if (parsed && parsed.sections) {
+              resultadosSequenciais.push(parsed.sections); // Salva os cards gerados
+              sucessoNoLote = true; // SUCESSO! A IA respondeu bem, isso quebra o loop 'while' e avança.
+            } else {
+              // Se o código chegou aqui, a IA respondeu, mas não mandou um JSON válido (mandou vazio ou texto solto)
+              console.warn(`⚠️ [AVISO] IA retornou vazio no Lote ${index + 1}.`);
+              
+              if (tentativas === maxTentativas) {
+                // Se já era a última tentativa, desiste e passa um array vazio para não quebrar o app
+                console.log(`🚨 IA falhou na última tentativa. Desistindo do Lote ${index + 1}.`);
+                resultadosSequenciais.push([]); 
+              } else {
+                // Se ainda tem tentativa sobrando, descansa 5 segundos para a IA "respirar" e tenta de novo
+                console.log(`⏸️ Aguardando 5 segundos para a última tentativa...`);
+                await new Promise(r => setTimeout(r, 5000));
+              }
+            }
+
+          } catch (err) {
+            // Se o código caiu aqui, foi erro de rede, erro 503 (Servidor Ocupado) ou a API caiu
+            console.error(`🚨 Erro no Lote ${index + 1} (Tentativa ${tentativas}):`, err.message);
+
+            if (tentativas >= maxTentativas) {
+              // Se a rede falhou nas duas vezes, salva o erro no banco de dados (Redis) para vermos depois
+              // e entrega um array vazio para o cliente não ficar travado na tela de loading
+              await salvarLogErroRedis(`GEMINI_LOTE_${index + 1}`, err);
+              resultadosSequenciais.push([]); 
+            } else {
+              // Deu erro na primeira tentativa, então aguarda 5s para o servidor do Google normalizar
+              console.log(`⏳ Servidor ocupado. Aguardando 5s para tentar a última vez...`);
+              await new Promise(r => setTimeout(r, 5000));
+            }
           }
+        } // Fim do loop 'while' (O lote atual foi resolvido, seja com sucesso ou falha)
 
-        } catch (err) {
 
-          console.error(`🚨 Erro no Lote ${index + 1}:`, err.message);
 
-          // 🔥 A MÁGICA AQUI: Salva o log lá no Redis para você ler depois!
-          // Usamos index + 1 para o log mostrar "Lote 1" em vez de "Lote 0"
-          await salvarLogErroRedis(`GEMINI_LOTE_${index + 1}`, err);
+        // =========================================================================
+        // ATUALIZAÇÃO DO PROGRESSO E TRANSIÇÃO DE LOTE
+        // =========================================================================
+        
+        // Atualiza a barra de carregamento na tela do celular do cliente
+        lotesConcluidos++;
+        const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
+        await setCache(`PROGRESS:${date}`, porcentagem);
 
-        } finally {
-
-          // 🔥 ATUALIZA O PROGRESSO REAL A CADA LOTE FINALIZADO
-          lotesConcluidos++;
-          const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
-          await setCache(`PROGRESS:${date}`, porcentagem);
-
+        // Se este NÃO for o último lote, faz uma pausa de 4 segundos antes de mandar o próximo.
+        // Isso evita que o Google nos bloqueie por excesso de requisições contínuas.
+        if (index < lotes.length - 1) {
+          console.log(`⏸️ [SISTEMA] Pausa de transição (4 segundos) antes do próximo lote...`);
+          await new Promise(resolve => setTimeout(resolve, 4000));
         }
+      }
 
-        return []; // Se um lote der erro, retorna vazio para não quebrar os outros
-
-      });
-
-
-      // 💥 A MÁGICA ACONTECE AQUI: Espera todos os lotes terminarem ao mesmo tempo!
-      const resultadosParalelos = await Promise.all(tarefas);
       await setCache(`PROGRESS:${date}`, 98); // 98% - Processando múltiplas e filtros finais
 
-      // Junta todas as respostas separadas em uma lista gigante única
-      let todasAsSections = resultadosParalelos.flat();
+      // Junta todas as respostas sequenciais em uma lista gigante única
+      let todasAsSections = resultadosSequenciais.flat();
+
 
       // --- Classificador automático de grupo (corrige Over/BTTS que viram RADAR)
       function classificarGrupoDoCard(card) {
