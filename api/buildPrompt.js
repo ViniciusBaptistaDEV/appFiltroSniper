@@ -78,6 +78,16 @@ Para cada jogo:
 Repita o processo até terminar a lista fornecida, um por um.
 Seja exaustivo e detalhista. Ignorar um jogo da lista fornecida é uma FALHA CRÍTICA.
 
+🚨 REGRA DE RETORNO OBRIGATÓRIO (ANTI-OMISSÃO - CRÍTICO):
+Nenhum jogo da lista fornecida pode simplesmente "sumir" do seu JSON final. 
+Se você analisar um jogo e constatar que TODOS os mercados dele (Vitória, Gols, Escanteios, etc.) foram bloqueados ou não possuem valor matemático seguro:
+Você DEVE OBRIGATORIAMENTE gerar 1 (um) card de "⛔ JOGOS ABORTADOS" (Flag: "VERMELHA") para esse jogo, justificando brevemente no campo [CONTEXTO] que nenhum mercado atingiu a margem de segurança. É terminantemente proibido omitir, pular ou deletar um jogo da análise final.
+
+🚨 REGRA DE COERÊNCIA TEXTUAL NAS JUSTIFICATIVAS:
+É estritamente proibido gerar textos contraditórios entre os campos [MOMENTO] e [CONTEXTO]. 
+Se você citar uma métrica (como xG) para justificar uma entrada em um campo, não pode alegar "ausência de dados" dessa mesma métrica genérica no outro campo para justificar um bloqueio. 
+Seja específico na sua justificativa de bloqueio. Exemplo correto: "Mercado de gols bloqueado por falta de dados defensivos (xGA) de longo prazo", em vez de generalizar dizendo que faltou xG.
+
 🧠 PROTOCOLO DE DADOS REAIS & ELENCOS (PRIORIDADE ZERO)
 1️⃣ VARREDURA OBRIGATÓRIA (REAL-TIME)
 Escopo de Dados: Utilize estatísticas prioritariamente da Temporada atual da liga (conforme a Regras de Calendário Temporada que você leu acima).
