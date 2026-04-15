@@ -179,7 +179,7 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
-      temperature: 0.1,
+      temperature: 0,
     }
   };
 
@@ -381,7 +381,9 @@ export default async function handler(req, res) {
 
         const prompt = montarPromptSniper(date, lote);
         let tentativas = 0;
-        const maxTentativas = 2;
+        const maxTentativas = 3; // 2 para o normal + 1 para o Lite
+        const MODELO_LITE = "gemini-2.5-flash-lite";
+
         let sucessoNoLote = false;
         let cardsDoLote = [];
 
@@ -397,7 +399,16 @@ export default async function handler(req, res) {
 
             let respostaIA = "";
             if (IA_PROVEDOR === 'gemini') {
-              respostaIA = await callGeminiJSON(prompt, MODEL_SNIPER, true);
+
+              // Se for a 3ª tentativa, usa o Lite, senão usa o configurado (ex: 2.5-flash)
+              let modeloParaEstaTentativa = (tentativas <= 2) ? MODEL_SNIPER : MODELO_LITE;
+
+              if (tentativas === 3) {
+                console.log(`⚠️ [FAILOVER] Acionando modelo LITE para o Lote ${index + 1} após falhas no modelo principal...`);
+              }
+
+              respostaIA = await callGeminiJSON(prompt, modeloParaEstaTentativa, true);
+
             } else {
               throw new Error(`AI_PROVIDER '${IA_PROVEDOR}' não suportado.`);
             }
@@ -405,196 +416,222 @@ export default async function handler(req, res) {
             const parsed = safeJsonParseFromText(respostaIA);
 
             if (parsed && parsed.sections) {
+
               cardsDoLote = parsed.sections;
               sucessoNoLote = true;
               console.log(`✅ [LOTE ${numeroLote}] Concluído com sucesso!`);
-            } else {
-              throw new Error("JSON Inválido ou sem seções.");
-            }
 
-          } catch (err) {
-            console.error(`🚨 Erro no Lote ${numeroLote} (Tentativa ${tentativas}):`, err.message);
+              // INCLUIR APENAS ESTE BLOCO ABAIXO:
+              if (tentativas === 3) {
+                console.log(`⚠️ [LOTE ${numeroLote}] Concluído com sucesso - VIA GEMINI LITE!`);
+                const logKey = `LOG_RECOVERY:${date}:LOTE_${numeroLote}`;
+                await setCache(logKey, {
+                  status: "SUCESSO_VIA_LITE",
+                  timestamp: new Date().toISOString(),
+                  lote: numeroLote
+                });
+              }
 
-            if (tentativas < maxTentativas) {
-              // Se falhou a primeira, espera 4 segundos para tentar a última
-              await new Promise(r => setTimeout(r, 4000));
-            } else {
-              // Se falhou tudo, salva o log e retorna vazio para este lote
-              await salvarLogErroRedis(`IA_LOTE_${numeroLote}`, err);
-              cardsDoLote = [];
+              } else {
+
+                throw new Error("JSON Inválido ou sem seções.");
+
+              }
+
+            } catch (err) {
+              console.error(`🚨 Erro no Lote ${numeroLote} (Tentativa ${tentativas}):`, err.message);
+
+              if (tentativas < maxTentativas) {
+
+                // Se falhou a primeira, espera 4 segundos para tentar a última
+                await new Promise(r => setTimeout(r, 4000));
+
+              } else {
+
+                console.error(`❌ [LOTE ${numeroLote}] FALHA TOTAL: Normal e Lite falharam.`);
+
+                // Se falhou tudo, salva o log e retorna vazio para este lote, mas continua com os outros lotes
+                await salvarLogErroRedis(`FALHA_CRITICA_LOTE_${numeroLote}`, {
+                  msg: "Ambos os modelos (Normal e Lite) falharam",
+                  erroFinal: err.message
+                });
+
+                cardsDoLote = [];
+
+              }
             }
           }
-        }
+
+        // =========================================================================
+        // ATUALIZAÇÃO DO PROGRESSO E TRANSIÇÃO DE LOTE
+        // =========================================================================
+
+        lotesConcluidos++;
+          const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
+          await setCache(`PROGRESS:${date}`, porcentagem);
+
+          return cardsDoLote;
+        });
+
+      // 2. AGUARDAR TODOS: Espera as promessas de todos os lotes serem resolvidas
+      const resultadosBrutos = await Promise.all(promessasLotes);
+
+      // 3. ACHATAR: Transforma a lista de listas em uma lista única de jogos analisados
+      const resultadosSequenciais = resultadosBrutos.flat();
+      
 
       // =========================================================================
-      // ATUALIZAÇÃO DO PROGRESSO E TRANSIÇÃO DE LOTE
+      // FINALIZAÇÃO DO MOTOR
       // =========================================================================
 
-      lotesConcluidos++;
-      const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
-      await setCache(`PROGRESS:${date}`, porcentagem);
-
-      return cardsDoLote;
-    });
-
-    // 2. AGUARDAR TODOS: Espera as promessas de todos os lotes serem resolvidas
-    const resultadosBrutos = await Promise.all(promessasLotes);
-
-    // 3. ACHATAR: Transforma a lista de listas em uma lista única de jogos analisados
-    const resultadosSequenciais = resultadosBrutos.flat();
-
-    // =========================================================================
-    // FINALIZAÇÃO DO MOTOR
-    // =========================================================================
-
-    await setCache(`PROGRESS:${date}`, 98); // Quase pronto
-    let todasAsSections = resultadosSequenciais; // Já está "flat" do passo anterior
+      await setCache(`PROGRESS:${date}`, 98); // Quase pronto
+      let todasAsSections = resultadosSequenciais; // Já está "flat" do passo anterior
 
 
-    // --- Classificador automático de grupo (corrige Over/BTTS que viram RADAR)
-    function classificarGrupoDoCard(card) {
-      const body = (card?.body || "").toLowerCase();
+      // --- Classificador automático de grupo (corrige Over/BTTS que viram RADAR)
+      function classificarGrupoDoCard(card) {
+        const body = (card?.body || "").toLowerCase();
 
-      if (body.includes("escanteios")) return "💎 ANÁLISE DE ESCANTEIOS";
-      if (body.includes("ambas marcam") || body.includes("btts")) return "⚽ AMBAS MARCAM";
-      if (body.includes("over") || body.includes("under") || body.includes("gols")) return "⚽ MERCADO DE GOLS";
-      if (card.flag === "MULTIPLA" || /bilhete/i.test(card.title || "")) return "🎫 BILHETE COMBINADO";
-      if (body.includes("abortado") || body.includes("bloqueado")) return "⛔ JOGOS ABORTADOS";
+        if (body.includes("escanteios")) return "💎 ANÁLISE DE ESCANTEIOS";
+        if (body.includes("ambas marcam") || body.includes("btts")) return "⚽ AMBAS MARCAM";
+        if (body.includes("over") || body.includes("under") || body.includes("gols")) return "⚽ MERCADO DE GOLS";
+        if (card.flag === "MULTIPLA" || /bilhete/i.test(card.title || "")) return "🎫 BILHETE COMBINADO";
+        if (body.includes("abortado") || body.includes("bloqueado")) return "⛔ JOGOS ABORTADOS";
 
-      return "🏆 RADAR DE VITÓRIAS";
-    }
+        return "🏆 RADAR DE VITÓRIAS";
+      }
 
-    // --- Aplicar classificacao se o LLM mandar group errado
-    todasAsSections = todasAsSections.map(s => ({
-      ...s,
-      group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
-    }));
+      // --- Aplicar classificacao se o LLM mandar group errado
+      todasAsSections = todasAsSections.map(s => ({
+        ...s,
+        group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
+      }));
 
-    // --- 🧠 MÁGICA DAS MÚLTIPLAS (FILTRO DE ELITE 80%+) ---
-    // 1. Limpa lixos de múltiplas anteriores
-    let sectionsLimpas = todasAsSections.filter(s => s && s.group !== "📝 MÚLTIPLAS" && s.group !== "RADAR DE MÚLTIPLAS");
+      // --- 🧠 MÁGICA DAS MÚLTIPLAS (FILTRO DE ELITE 80%+) ---
+      // 1. Limpa lixos de múltiplas anteriores
+      let sectionsLimpas = todasAsSections.filter(s => s && s.group !== "📝 MÚLTIPLAS" && s.group !== "RADAR DE MÚLTIPLAS");
 
-    // 2. Filtro Rigoroso: Apenas VERDE E com CONFIANÇA >= 85%
-    const jogosElite = sectionsLimpas.filter(s => {
-      // Primeiro checa se é verde
-      const isVerde = s && s.flag && s.flag.trim().toUpperCase() === "VERDE";
-      if (!isVerde) return false;
+      // 2. Filtro Rigoroso: Apenas VERDE E com CONFIANÇA >= 85%
+      const jogosElite = sectionsLimpas.filter(s => {
+        // Primeiro checa se é verde
+        const isVerde = s && s.flag && s.flag.trim().toUpperCase() === "VERDE";
+        if (!isVerde) return false;
 
-      // Segundo, extrai a confiança e checa se é >= 85
-      const match = s.body.match(/\[CONFIDENCA\] (\d+)%/);
-      const valorConfianca = match ? parseInt(match[1]) : 0;
+        // Segundo, extrai a confiança e checa se é >= 85
+        const match = s.body.match(/\[CONFIDENCA\] (\d+)%/);
+        const valorConfianca = match ? parseInt(match[1]) : 0;
 
-      return valorConfianca >= 85; // Filtra apenas os jogos com confiança de 85% ou mais
-    });
-
-    console.log(`🎯 [MULTIPLA] Encontrados ${jogosElite.length} jogos de elite para o bilhete.`);
-
-    // 3. Só cria a múltipla se sobrarem 2 ou mais jogos após o filtro de 80%
-    if (jogosElite.length >= 2) {
-
-      const listaConfiancas = jogosElite.map(j => {
-        const match = j.body.match(/(?:\[CONFIDENCA\]|Confiança:?)\s*(\d+)%/i);
-        return match ? parseInt(match[1]) : 0;
-      }).filter(n => n > 0);
-
-      // --- 🧠 CÁLCULO DE PROBABILIDADE REAL (MULTIPLICAÇÃO) ---
-      const probabilidadeReal = listaConfiancas.length > 0
-        ? Math.round(
-          listaConfiancas.reduce((acc, val) => acc * (val / 100), 1) * 100
-        )
-        : 0;
-
-      // Formata a lista de apostas exatamente como você pediu: TIME - PALPITE
-      const listaDeApostas = jogosElite.map(j => {
-        const jogoNome = j.title.split(" (")[0].toUpperCase();
-        let palpite = "Confirmado";
-        try {
-          // Extrai o palpite real de dentro do card verde
-          palpite = j.body.split("|")[0].replace("[OPORTUNIDADE]", "").trim();
-        } catch (e) { }
-        return `${jogoNome} — ${palpite}`;
-      }).join("\n\n"); // Pulo de linha duplo para organizar no card
-
-      sectionsLimpas.push({
-        // USAMOS O GRUPO "RADAR DE VITÓRIAS" PARA FORÇAR O LAYOUT DE CARD
-        group: "RADAR DE VITÓRIAS",
-        title: "🎫 BILHETE COMBINADO",
-        // PREENCHEMOS AS TAGS PARA O JS DO SITE DISTRIBUIR NOS CAMPOS:
-        body: `[OPORTUNIDADE] Múltipla de Segurança | [TARGET] Jogos verdes com probabilidade acima de 80% | [MOMENTO] ${listaDeApostas} | [CONTEXTO] Cruzamento tático dos cenários Verdes da rodada com alta probabilidade. | [CONFIDENCA] ${probabilidadeReal}%`,
-        flag: "MULTIPLA" // Isso fará aparecer "MULTIPLA" na lateral. Se o seu CSS tiver a cor azul para essa classe, ficará perfeito!
+        return valorConfianca >= 85; // Filtra apenas os jogos com confiança de 85% ou mais
       });
+
+      console.log(`🎯 [MULTIPLA] Encontrados ${jogosElite.length} jogos de elite para o bilhete.`);
+
+      // 3. Só cria a múltipla se sobrarem 2 ou mais jogos após o filtro de 80%
+      if (jogosElite.length >= 2) {
+
+        const listaConfiancas = jogosElite.map(j => {
+          const match = j.body.match(/(?:\[CONFIDENCA\]|Confiança:?)\s*(\d+)%/i);
+          return match ? parseInt(match[1]) : 0;
+        }).filter(n => n > 0);
+
+        // --- 🧠 CÁLCULO DE PROBABILIDADE REAL (MULTIPLICAÇÃO) ---
+        const probabilidadeReal = listaConfiancas.length > 0
+          ? Math.round(
+            listaConfiancas.reduce((acc, val) => acc * (val / 100), 1) * 100
+          )
+          : 0;
+
+        // Formata a lista de apostas exatamente como você pediu: TIME - PALPITE
+        const listaDeApostas = jogosElite.map(j => {
+          const jogoNome = j.title.split(" (")[0].toUpperCase();
+          let palpite = "Confirmado";
+          try {
+            // Extrai o palpite real de dentro do card verde
+            palpite = j.body.split("|")[0].replace("[OPORTUNIDADE]", "").trim();
+          } catch (e) { }
+          return `${jogoNome} — ${palpite}`;
+        }).join("\n\n"); // Pulo de linha duplo para organizar no card
+
+        sectionsLimpas.push({
+          // USAMOS O GRUPO "RADAR DE VITÓRIAS" PARA FORÇAR O LAYOUT DE CARD
+          group: "RADAR DE VITÓRIAS",
+          title: "🎫 BILHETE COMBINADO",
+          // PREENCHEMOS AS TAGS PARA O JS DO SITE DISTRIBUIR NOS CAMPOS:
+          body: `[OPORTUNIDADE] Múltipla de Segurança | [TARGET] Jogos verdes com probabilidade acima de 80% | [MOMENTO] ${listaDeApostas} | [CONTEXTO] Cruzamento tático dos cenários Verdes da rodada com alta probabilidade. | [CONFIDENCA] ${probabilidadeReal}%`,
+          flag: "MULTIPLA" // Isso fará aparecer "MULTIPLA" na lateral. Se o seu CSS tiver a cor azul para essa classe, ficará perfeito!
+        });
+      }
+
+      // --- 🔄 ORDENAÇÃO POR CORES (HIERARQUIA SOLICITADA) ---
+      // 1º Verdes | 2º Amarelos | 3º Múltipla | 4º Vermelhos
+      sectionsLimpas.sort((a, b) => {
+        const getPeso = (card) => {
+          // Jogo VERDE que não seja a múltipla
+          if (card.flag === "VERDE" && card.group !== "RADAR DE VITÓRIAS" || (card.flag === "VERDE" && !card.title.includes("BILHETE"))) return 1;
+
+          if (card.flag === "AMARELA") return 2;
+
+          // A Múltipla (identificada pelo flag ou título)
+          if (card.flag === "MULTIPLA" || card.title.includes("BILHETE")) return 3;
+
+          if (card.flag === "VERMELHA") return 4;
+
+          return 5;
+        };
+        return getPeso(a) - getPeso(b);
+      });
+
+      // Calcula o momento exato no futuro em que o cache expira (em milissegundos)
+      const tempoExpiracao = Date.now() + (CACHE_TTL * 1000);
+
+      analisePronta = {
+        resultado: `Análise finalizada em modo turbo paralelo. Processados ${lotes.length} lotes de jogos.`,
+        sections: sectionsLimpas,
+        expiresAt: tempoExpiracao // 🔥 A mágica começa aqui
+      };
+
+      await setCache(`SNIPER_V12:${date}`, analisePronta); // Lembra de mudar a chave para V12 para testar!
+      console.log(`\n✅ [SUCESSO] Grade completa analisada e salva no Redis.\n`);
+    } else {
+      console.log('\n=================================================');
+      console.log(`⚡ [CACHE] Leitura instantânea do Redis para a data ${date}.\n`);
     }
 
-    // --- 🔄 ORDENAÇÃO POR CORES (HIERARQUIA SOLICITADA) ---
-    // 1º Verdes | 2º Amarelos | 3º Múltipla | 4º Vermelhos
-    sectionsLimpas.sort((a, b) => {
-      const getPeso = (card) => {
-        // Jogo VERDE que não seja a múltipla
-        if (card.flag === "VERDE" && card.group !== "RADAR DE VITÓRIAS" || (card.flag === "VERDE" && !card.title.includes("BILHETE"))) return 1;
 
-        if (card.flag === "AMARELA") return 2;
+    // ---------------------------------------------------------
+    // ETAPA 3: Devolver o resultado pronto para o front
+    // ---------------------------------------------------------
+    // 🔥 MESCLANDO OS DADOS COM AS ODDS:
+    const sectionsComOdds = await getEnrichedSections(analisePronta.sections, date, grade);
 
-        // A Múltipla (identificada pelo flag ou título)
-        if (card.flag === "MULTIPLA" || card.title.includes("BILHETE")) return 3;
+    // 🔥 Calcula o tempo total gasto antes de entregar a resposta
+    const momentoFim = new Date();
+    const horaFim = momentoFim.toLocaleTimeString('pt-BR') + '.' + String(momentoFim.getMilliseconds()).padStart(3, '0');
+    const tempoTotalSegundos = ((momentoFim - momentoInicio) / 1000).toFixed(2);
 
-        if (card.flag === "VERMELHA") return 4;
+    console.log(`\n=================================================`);
+    console.log(`🛑 [IA SNIPER] FIM DA ANÁLISE: ${horaFim}`);
+    console.log(`⏱️ TEMPO GASTO NO PROCESSAMENTO: ${tempoTotalSegundos} segundos`);
+    console.log(`=================================================\n`);
 
-        return 5;
-      };
-      return getPeso(a) - getPeso(b);
+    return res.status(200).json({
+      status: "ok",
+      date,
+      generatedAt: new Date().toISOString(),
+      expiresAt: analisePronta.expiresAt, // 🔥 Envia o tempo para o Front-end
+      source: { grade: "ESPN", ai: `Motor IA: ${IA_PROVEDOR.toUpperCase()} + Lotes Turbo Paralelo` },
+      sections: sectionsComOdds, // Devolvemos os cards já com as Odds Reais embutidas!
+      resultado: analisePronta.resultado
     });
 
-    // Calcula o momento exato no futuro em que o cache expira (em milissegundos)
-    const tempoExpiracao = Date.now() + (CACHE_TTL * 1000);
+  } catch (error) {
 
-    analisePronta = {
-      resultado: `Análise finalizada em modo turbo paralelo. Processados ${lotes.length} lotes de jogos.`,
-      sections: sectionsLimpas,
-      expiresAt: tempoExpiracao // 🔥 A mágica começa aqui
-    };
+    console.error("🚨 ERRO CRÍTICO NO PIPELINE:", error);
 
-    await setCache(`SNIPER_V12:${date}`, analisePronta); // Lembra de mudar a chave para V12 para testar!
-    console.log(`\n✅ [SUCESSO] Grade completa analisada e salva no Redis.\n`);
-  } else {
-    console.log('\n=================================================');
-    console.log(`⚡ [CACHE] Leitura instantânea do Redis para a data ${date}.\n`);
+    // 🔥 Captura falhas fatais do sistema e envia pro Redis
+    await salvarLogErroRedis("CRASH_GLOBAL_SISTEMA", error);
+
+    return res.status(500).json({ error: "Erro interno na análise", detalhe: error.message });
+
   }
-
-
-  // ---------------------------------------------------------
-  // ETAPA 3: Devolver o resultado pronto para o front
-  // ---------------------------------------------------------
-  // 🔥 MESCLANDO OS DADOS COM AS ODDS:
-  const sectionsComOdds = await getEnrichedSections(analisePronta.sections, date, grade);
-
-  // 🔥 Calcula o tempo total gasto antes de entregar a resposta
-  const momentoFim = new Date();
-  const horaFim = momentoFim.toLocaleTimeString('pt-BR') + '.' + String(momentoFim.getMilliseconds()).padStart(3, '0');
-  const tempoTotalSegundos = ((momentoFim - momentoInicio) / 1000).toFixed(2);
-
-  console.log(`\n=================================================`);
-  console.log(`🛑 [IA SNIPER] FIM DA ANÁLISE: ${horaFim}`);
-  console.log(`⏱️ TEMPO GASTO NO PROCESSAMENTO: ${tempoTotalSegundos} segundos`);
-  console.log(`=================================================\n`);
-
-  return res.status(200).json({
-    status: "ok",
-    date,
-    generatedAt: new Date().toISOString(),
-    expiresAt: analisePronta.expiresAt, // 🔥 Envia o tempo para o Front-end
-    source: { grade: "ESPN", ai: `Motor IA: ${IA_PROVEDOR.toUpperCase()} + Lotes Turbo Paralelo` },
-    sections: sectionsComOdds, // Devolvemos os cards já com as Odds Reais embutidas!
-    resultado: analisePronta.resultado
-  });
-
-} catch (error) {
-
-  console.error("🚨 ERRO CRÍTICO NO PIPELINE:", error);
-
-  // 🔥 Captura falhas fatais do sistema e envia pro Redis
-  await salvarLogErroRedis("CRASH_GLOBAL_SISTEMA", error);
-
-  return res.status(500).json({ error: "Erro interno na análise", detalhe: error.message });
-
-}
 }

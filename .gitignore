@@ -2,3 +2,4 @@
 .env*.local
 radarAPIGemini.js
 coletor.js
+testeAPI.js
