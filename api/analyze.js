@@ -432,53 +432,53 @@ export default async function handler(req, res) {
                 });
               }
 
-              } else {
+            } else {
 
-                throw new Error("JSON Inválido ou sem seções.");
+              throw new Error("JSON Inválido ou sem seções.");
 
-              }
+            }
 
-            } catch (err) {
-              console.error(`🚨 Erro no Lote ${numeroLote} (Tentativa ${tentativas}):`, err.message);
+          } catch (err) {
+            console.error(`🚨 Erro no Lote ${numeroLote} (Tentativa ${tentativas}):`, err.message);
 
-              if (tentativas < maxTentativas) {
+            if (tentativas < maxTentativas) {
 
-                // Se falhou a primeira, espera 4 segundos para tentar a última
-                await new Promise(r => setTimeout(r, 4000));
+              // Se falhou a primeira, espera 4 segundos para tentar a última
+              await new Promise(r => setTimeout(r, 4000));
 
-              } else {
+            } else {
 
-                console.error(`❌ [LOTE ${numeroLote}] FALHA TOTAL: Normal e Lite falharam.`);
+              console.error(`❌ [LOTE ${numeroLote}] FALHA TOTAL: Normal e Lite falharam.`);
 
-                // Se falhou tudo, salva o log e retorna vazio para este lote, mas continua com os outros lotes
-                await salvarLogErroRedis(`FALHA_CRITICA_LOTE_${numeroLote}`, {
-                  msg: "Ambos os modelos (Normal e Lite) falharam",
-                  erroFinal: err.message
-                });
+              // Se falhou tudo, salva o log e retorna vazio para este lote, mas continua com os outros lotes
+              await salvarLogErroRedis(`FALHA_CRITICA_LOTE_${numeroLote}`, {
+                msg: "Ambos os modelos (Normal e Lite) falharam",
+                erroFinal: err.message
+              });
 
-                cardsDoLote = [];
+              cardsDoLote = [];
 
-              }
             }
           }
+        }
 
         // =========================================================================
         // ATUALIZAÇÃO DO PROGRESSO E TRANSIÇÃO DE LOTE
         // =========================================================================
 
         lotesConcluidos++;
-          const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
-          await setCache(`PROGRESS:${date}`, porcentagem);
+        const porcentagem = Math.round((lotesConcluidos / lotes.length) * 95);
+        await setCache(`PROGRESS:${date}`, porcentagem);
 
-          return cardsDoLote;
-        });
+        return cardsDoLote;
+      });
 
       // 2. AGUARDAR TODOS: Espera as promessas de todos os lotes serem resolvidas
       const resultadosBrutos = await Promise.all(promessasLotes);
 
       // 3. ACHATAR: Transforma a lista de listas em uma lista única de jogos analisados
       const resultadosSequenciais = resultadosBrutos.flat();
-      
+
 
       // =========================================================================
       // FINALIZAÇÃO DO MOTOR
@@ -501,11 +501,21 @@ export default async function handler(req, res) {
         return "🏆 RADAR DE VITÓRIAS";
       }
 
-      // --- Aplicar classificacao se o LLM mandar group errado
-      todasAsSections = todasAsSections.map(s => ({
-        ...s,
-        group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
-      }));
+      // --- Aplicar classificacao se o LLM mandar group errado e normalizar o IDIOMA da Flag
+      todasAsSections = todasAsSections.map(s => {
+        let flagCorrigida = (s.flag || "").trim().toUpperCase();
+
+        // Intercepta e traduz as alucinações em inglês do modelo Lite
+        if (flagCorrigida === "GREEN") flagCorrigida = "VERDE";
+        if (flagCorrigida === "YELLOW") flagCorrigida = "AMARELA";
+        if (flagCorrigida === "RED") flagCorrigida = "VERMELHA";
+
+        return {
+          ...s,
+          flag: flagCorrigida,
+          group: s.group?.trim() ? s.group : classificarGrupoDoCard(s)
+        };
+      });
 
       // --- 🧠 MÁGICA DAS MÚLTIPLAS (FILTRO DE ELITE 80%+) ---
       // 1. Limpa lixos de múltiplas anteriores
