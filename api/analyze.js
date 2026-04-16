@@ -423,11 +423,11 @@ export default async function handler(req, res) {
 
               // INCLUIR APENAS ESTE BLOCO ABAIXO:
               if (tentativas === 3) {
-                console.log(`⚠️ [LOTE ${numeroLote}] Concluído com sucesso - VIA GEMINI LITE!`);
+                console.log(`\n⚠️ [LOTE ${numeroLote}] Concluído com sucesso - VIA GEMINI LITE!\n`);
                 const logKey = `LOG_RECOVERY:${date}:LOTE_${numeroLote}`;
                 await setCache(logKey, {
                   status: "SUCESSO_VIA_LITE",
-                  timestamp: new Date().toISOString(),
+                  timestamp: new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }),
                   lote: numeroLote
                 });
               }
