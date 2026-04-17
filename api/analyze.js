@@ -13,6 +13,7 @@ const cleanEnv = (key) => process.env[key]?.replace(/['"]/g, '').trim();
 const REDIS_URL = cleanEnv('UPSTASH_REDIS_REST_URL')?.replace(/\/$/, '');
 const REDIS_TOKEN = cleanEnv('UPSTASH_REDIS_REST_TOKEN');
 const MODEL_SNIPER = cleanEnv('GEM_COLLECTOR_MODEL');
+const MODELO_LITE = cleanEnv('GEM_COLLECTOR_MODEL_LITE');
 const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS);
 
 
@@ -382,7 +383,6 @@ export default async function handler(req, res) {
         const prompt = montarPromptSniper(date, lote);
         let tentativas = 0;
         const maxTentativas = 3; // 2 para o normal + 1 para o Lite
-        const MODELO_LITE = "gemini-2.5-flash-lite";
 
         let sucessoNoLote = false;
         let cardsDoLote = [];
