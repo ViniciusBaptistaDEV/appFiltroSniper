@@ -4,6 +4,7 @@
 
 import { buscarJogos } from "./football.js";
 import { montarPromptSniper } from "./buildPrompt.js";
+import { montarPromptRAGLote } from "./buildPromptTavily.js";
 import { obterOddsDoDia, buscarOddsParaCard } from "./oddsFetcher.js";
 
 // Função para limpar as chaves da Vercel (evita erro de aspas invisíveis)
@@ -15,10 +16,222 @@ const REDIS_TOKEN = cleanEnv('UPSTASH_REDIS_REST_TOKEN');
 const MODEL_SNIPER = cleanEnv('GEM_COLLECTOR_MODEL');
 const MODELO_LITE = cleanEnv('GEM_COLLECTOR_MODEL_LITE');
 const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS);
+const GEMINI_API_KEY = cleanEnv('GEMINI_API_KEY');
 
+const TAVILY_API_KEY = cleanEnv('TAVILY_API_KEY');
+const MODEL_TAVILY_MAIN = cleanEnv('MODEL_TAVILY_MAIN');
 
 // Define qual IA vai rodar (se estiver vazio, por segurança roda o gemini)
-const IA_PROVEDOR = cleanEnv('AI_PROVIDER') || 'gemini'; // Opções: 'gemini' ou 'cohere'
+const IA_PROVEDOR = cleanEnv('AI_PROVIDER'); // Opções: 'gemini' ou 'jina'
+
+
+/* ========================================================================================
+  MÓDULO TAVILY SEARCH 
+======================================================================================== */
+async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
+
+  // 🔥 DETETIVE: Isso vai imprimir no painel da Vercel se a chave está realmente lá
+  if (!TAVILY_API_KEY) {
+    console.error("🚨 ERRO FATAL: TAVILY_API_KEY está VAZIA ou UNDEFINED no servidor!");
+  } else {
+    // Imprime apenas os 9 primeiros caracteres por segurança para você confirmar se é a chave certa
+    console.log(`🔑 Chave Tavily detectada: ${TAVILY_API_KEY.substring(0, 9)}...`);
+  }
+
+  const body = {
+
+    query: queryTexto,
+    search_depth: "basic",
+    include_raw_content: true,
+    max_results: 3,
+    days: diasBusca,
+    include_answer: false,
+    include_images: false,
+    topic: tipoBusca,
+    exclude_domains: [
+      "youtube.com",
+      "twitter.com",
+      "x.com",
+      "facebook.com",
+      "instagram.com",
+      "tiktok.com",
+      "pinterest.com",
+      "bet365.com",
+      "betano.com",
+      "reddit.com",
+      "quora.com",
+      "sportingbet.com"
+    ]
+  };
+
+  const response = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${TAVILY_API_KEY}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    return { ok: false, status: response.status };
+  }
+
+  const data = await response.json();
+
+  // Constrói o texto mesclando as 4 fontes e cortando excessos (5000 caracteres por fonte)
+  const conteudoUnificado = data.results.map(r => {
+    // Se o raw_content vier vazio por algum motivo de bloqueio do site, usa o content (snippet) como backup
+    const conteudoReal = r.raw_content ? r.raw_content.substring(0, 6000) : r.content;
+    return `FONTE: ${r.url}\nCONTEÚDO:\n${conteudoReal}`;
+  }).join("\n\n---\n\n");
+
+  return { ok: true, texto: conteudoUnificado };
+}
+
+function limparTextoMarkdown(texto) {
+  return texto.replace(/!\[.*?\]\(.*?\)/g, '').replace(/\[.*?\]\(.*?\)/g, '').replace(/^\s*[\r\n]/gm, '').trim();
+}
+
+
+
+/* ========================================================================================
+  MÓDULO TAVILY SEARCH + GEMINI RAG (INJETADO)
+* ====================================================================================== */
+
+async function buscarDadosCompletos(jogoObj) {
+  const jogoNome = `${jogoObj.homeTeam} vs ${jogoObj.awayTeam}`;
+  const liga = jogoObj.league.toLowerCase();
+  const dataObj = new Date(jogoObj.kickoff);
+  const ano = dataObj.getFullYear();
+  const mes = dataObj.getMonth() + 1;
+  const dataBR = dataObj.toLocaleDateString('pt-BR');
+
+  // Cálculos de temporada
+  const temporadaEuropa = mes >= 8 ? `${ano}-${ano + 1}` : `${ano - 1}-${ano}`;
+  const temporadaSulAmericana = `${ano}`;
+
+
+  // 1. Definição das variáveis (agora apenas duas)
+  let queryNoticias, queryPerformance;
+
+  // 2. Lógica de Idioma + Temporada Exata nas Buscas
+  if (liga.includes("brazil") || liga.includes("brasileiro") || liga.includes("Brazilian")) {
+
+    // QUERY 1: Fator Humano e Disponibilidade
+    queryNoticias = `Desfalques, lesões, suspensões, provável escalação, maratona de jogos, rodízio ${jogoNome} ${dataBR} GE Globo Esporte UOL Gazeta Esportiva`;
+
+    // QUERY 2: DNA do Jogo (Números + Tática)
+    queryPerformance = `Estatísticas xG (Expected Goals), estatísticas últimos 5 jogos, média de escanteios, análise pré-jogo, chances de gol,análise tática, cruzamentos, bloco baixo contra-ataque, ritmo de jogo ${jogoNome} ${temporadaSulAmericana} Sofascore Flashscore FBref Footure Gato Mestre`;
+
+  } else if (liga.includes("libertadores") || liga.includes("sudamericana") || liga.includes("sulamericana")) {
+
+    // QUERY 1: Fator Humano e Disponibilidade
+    queryNoticias = `Bajas, lesionados, suspendidos, alineación probable, descanso y rotación ${jogoNome} ${dataBR} TyC Sports Olé Promiedos`;
+
+    // QUERY 2: DNA do Jogo (Números + Tática)
+    queryPerformance = `Estadísticas, promedios tiros de esquina, goles esperados xG, análisis táctico, ventaja ida, clima, altura, estilo de juego ${jogoNome} ${temporadaSulAmericana} tiros de esquina xG promedios balón parado Promiedos Sofascore Footure Flashscore`;
+
+  } else {
+
+    // QUERY 1: Fator Humano e Disponibilidade
+    queryNoticias = `Match preview, team news, injuries, predicted lineup, fixture congestion, rotated squad ${jogoNome} ${dataBR} Goal.com WhoScored Sports Mole`;
+
+    // QUERY 2: DNA do Jogo (Números + Tática)
+    queryPerformance = `Expected goals xG, xG analysis, average corners, tactical preview, match preview, match stats last 5 games, high press, aerial duels, game management ${jogoNome} ${temporadaEuropa} low intensity post-shot xG Squawka The Analyst Opta Whoscored`;
+  }
+
+
+
+  try {
+
+    // 🔥 Dispara as DUAS buscas para o Tavily ao mesmo tempo
+    const [resNoticias, resPerf] = await Promise.all([
+      fetchTavily(queryNoticias, 2, "news"),
+      fetchTavily(queryPerformance, 5, "general")
+    ]);
+
+    // 🔥 DETECTOR DE LIMITE / ERROS DO TAVILY
+    if (!resNoticias.ok || !resPerf.ok) {
+      console.error(`🚨 [TAVILY ALERTA] API bloqueou a busca! Status: Notícias(${resNoticias.status}), Estatísticas(${resPerf.status}).`);
+
+      await salvarLogErroRedis(`TAVILY_SCRAPE_FAIL:${jogoNome}`, {
+        message: "A API do Tavily recusou a conexão ou retornou erro.",
+        statusNoticias: resNoticias.status,
+        statusPerformance: resPerf.status
+      });
+
+      if (resNoticias.status === 429 || resPerf.status === 429) {
+        return "Indisponível - Limite de requisições Tavily atingido. Verifique o painel.";
+      }
+
+      return "Indisponível - Falha na raspagem do Tavily.";
+    }
+
+    // Aplica a limpeza final para tirar sujeiras de Markdown que o Tavily possa ter deixado
+    const textoNoticias = limparTextoMarkdown(resNoticias.texto);
+    const textoPerf = limparTextoMarkdown(resPerf.texto);
+
+    return `\n--- PARTE 1: NOTÍCIAS ---\n${textoNoticias}\n--- PARTE 2: ESTATÍSTICAS ---\n${textoPerf}\n`;
+
+  } catch (error) {
+    await salvarLogErroRedis(`TAVILY_SCRAPE_EXCEPTION:${jogoNome}`, error);
+    console.error("❌ Erro na raspagem Tavily:", error);
+    return "Indisponível";
+  }
+
+}
+
+// O Motor Duplo do Tavily (Fallback Automático para Lotes)
+async function callGeminiWithTavilyLote(promptTexto, loteArray) {
+  // 🔥 CORREÇÃO AQUI: Usando a variável correta MODEL_TAVILY_MAIN
+  const modelsToTry = [MODEL_TAVILY_MAIN, MODEL_SNIPER];
+
+  for (let i = 0; i < modelsToTry.length; i++) {
+    const modelName = modelsToTry[i];
+    console.log(`🧠 [TAVILY] Tentativa ${i + 1}/2 - Enviando Dossiê do Lote para o modelo: ${modelName}`);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptTexto }] }],
+          generationConfig: { temperature: 0.2, responseMimeType: "application/json" }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.candidates && data.candidates.length > 0) {
+        return JSON.parse(data.candidates[0].content.parts[0].text);
+      } else {
+        console.error(`❌ [TAVILY] Tentativa ${i + 1} falhou (API Recusou):`, data.error || data.promptFeedback);
+      }
+    } catch (err) {
+      console.error(`❌ [TAVILY] Erro técnico na tentativa ${i + 1}:`, err.message);
+    }
+  }
+
+  // 🔥 LOG NO REDIS: Se chegou aqui, todos os modelos falharam para o lote todo
+  await salvarLogErroRedis(`TAVILY_TOTAL_BATCH_FAILURE`, {
+    message: "Ambos os modelos do Gemini Oficial e Backup falharam ao analisar o dossiê do lote.",
+    jogosNoLote: loteArray.map(j => `${j.homeTeam} vs ${j.awayTeam}`).join(", ")
+  });
+
+  console.error(`🚨 [TAVILY FATAL] Modelos falharam para o lote inteiro. Gerando Cards Abortados.`);
+
+  const fallbackSections = loteArray.map(jogo => ({
+    group: "⛔ JOGOS ABORTADOS",
+    title: `${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league})`,
+    body: "[OPORTUNIDADE] Abortado | [TARGET] Indisponível | [MOMENTO] Falha de processamento nas IAs de retaguarda (Overload). | [CONTEXTO] Bloqueio de segurança gerado devido a falhas de comunicação com a IA durante o processamento em lote. | [CONFIDENCA] 0%",
+    flag: "VERMELHA"
+  }));
+
+  return { sections: fallbackSections };
+}
+
 
 /* ========================================================================================
   CACHE GLOBAL (REDIS UPSTASH)
@@ -380,6 +593,7 @@ export default async function handler(req, res) {
         // Isso evita o bloqueio por "excesso de requisições no mesmo segundo"
         await new Promise(r => setTimeout(r, index * 3000));
 
+
         const prompt = montarPromptSniper(date, lote);
         let tentativas = 0;
         const maxTentativas = 3; // 2 para o normal + 1 para o Lite
@@ -394,35 +608,81 @@ export default async function handler(req, res) {
             tentativas++;
 
             if (tentativas > 1) {
-              console.log(`🔄 [RETRY] Lote ${numeroLote} - Tentativa 2...`);
+              console.log(`🔄 [RETRY] Lote ${numeroLote} - Tentativa ${tentativas}...`);
             }
 
-            let respostaIA = "";
-            if (IA_PROVEDOR === 'gemini') {
+            // MUDANÇA: 'parsed' sobe para cá para podermos preencher direto no Jina
+            let parsed = null;
 
-              // Se for a 3ª tentativa, usa o Lite, senão usa o configurado (ex: 2.5-flash)
+            if (IA_PROVEDOR === 'gemini') {
+              // ====================================================================
+              // MODO GEMINI CLÁSSICO (O fluxo original com Google Search nativo)
+              // ====================================================================
               let modeloParaEstaTentativa = (tentativas <= 2) ? MODEL_SNIPER : MODELO_LITE;
 
               if (tentativas === 3) {
-                console.log(`⚠️ [FAILOVER] Acionando modelo LITE para o Lote ${index + 1} após falhas no modelo principal...`);
+                console.log(`⚠️ [FAILOVER] Acionando modelo LITE para o Lote ${numeroLote} após falhas no modelo principal...`);
               }
 
-              respostaIA = await callGeminiJSON(prompt, modeloParaEstaTentativa, true);
+              let respostaIA = await callGeminiJSON(prompt, modeloParaEstaTentativa, true);
+
+              // Aqui a gente precisa do Aspirador, porque o Gemini solta texto sujo
+              parsed = safeJsonParseFromText(respostaIA);
+
+
+
+
+            } else if (IA_PROVEDOR === 'tavily') {
+
+              // ====================================================================
+              // MODO TAVILY + GEMINI RAG (FLUXO 2 CONSULTAS - MAX RESULTS 4)
+              // ====================================================================
+
+              console.log(`\n🚀 [LOTE ${numeroLote}] Construindo Dossiê Unificado para ${lote.length} jogos...`);
+
+              let dossieCompleto = "";
+
+              for (let idx = 0; idx < lote.length; idx++) {
+                const jogo = lote[idx];
+
+                // Pausa de 5s mantida para evitar Rate Limit e manter a estabilidade no servidor serverless
+                await new Promise(r => setTimeout(r, idx * 5000));
+
+                console.log(`⚽ Buscando Dossiê via Tavily ${idx + 1}/${lote.length}: ${jogo.homeTeam} vs ${jogo.awayTeam}`);
+                const dadosTavily = await buscarDadosCompletos(jogo);
+
+                dossieCompleto += `\n\n===================================================================\n`;
+                dossieCompleto += `📌 DADOS DO JOGO ${idx + 1}: ${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league})\n`;
+                dossieCompleto += `===================================================================\n`;
+                dossieCompleto += dadosTavily;
+              }
+
+              console.log(`\n🧠 [LOTE ${numeroLote}] Enviando ÚNICA requisição para o Gemini avaliar os ${lote.length} jogos...`);
+              const promptPronto = montarPromptRAGLote(lote, dossieCompleto, date);
+
+              // Chamando backup de outro modelo do gemini para analisar o lote inteiro
+              const resultadoIA = await callGeminiWithTavilyLote(promptPronto, lote);
+
+              if (resultadoIA && resultadoIA.sections) {
+                parsed = { sections: resultadoIA.sections };
+              } else {
+                parsed = { sections: [] };
+              }
 
             } else {
               throw new Error(`AI_PROVIDER '${IA_PROVEDOR}' não suportado.`);
             }
 
-            const parsed = safeJsonParseFromText(respostaIA);
-
+            // ====================================================================
+            // VALIDAÇÃO COMUM A AMBOS OS MODELOS
+            // ====================================================================
             if (parsed && parsed.sections) {
 
               cardsDoLote = parsed.sections;
               sucessoNoLote = true;
               console.log(`✅ [LOTE ${numeroLote}] Concluído com sucesso!`);
 
-              // INCLUIR APENAS ESTE BLOCO ABAIXO:
-              if (tentativas === 3) {
+              if (tentativas === 3 && IA_PROVEDOR === 'gemini') {
                 console.log(`\n⚠️ [LOTE ${numeroLote}] Concluído com sucesso - VIA GEMINI LITE!\n`);
                 const logKey = `LOG_RECOVERY:${date}:LOTE_${numeroLote}`;
                 await setCache(logKey, {
@@ -433,31 +693,21 @@ export default async function handler(req, res) {
               }
 
             } else {
-
               throw new Error("JSON Inválido ou sem seções.");
-
             }
 
           } catch (err) {
             console.error(`🚨 Erro no Lote ${numeroLote} (Tentativa ${tentativas}):`, err.message);
 
             if (tentativas < maxTentativas) {
-
-              // Se falhou a primeira, espera 4 segundos para tentar a última
               await new Promise(r => setTimeout(r, 4000));
-
             } else {
-
-              console.error(`❌ [LOTE ${numeroLote}] FALHA TOTAL: Normal e Lite falharam.`);
-
-              // Se falhou tudo, salva o log e retorna vazio para este lote, mas continua com os outros lotes
+              console.error(`❌ [LOTE ${numeroLote}] FALHA TOTAL.`);
               await salvarLogErroRedis(`FALHA_CRITICA_LOTE_${numeroLote}`, {
-                msg: "Ambos os modelos (Normal e Lite) falharam",
+                msg: "Ambos os modelos falharam",
                 erroFinal: err.message
               });
-
               cardsDoLote = [];
-
             }
           }
         }
