@@ -19,10 +19,102 @@ const CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS);
 const GEMINI_API_KEY = cleanEnv('GEMINI_API_KEY');
 
 const TAVILY_API_KEY = cleanEnv('TAVILY_API_KEY');
-const MODEL_TAVILY_MAIN = cleanEnv('MODEL_TAVILY_MAIN');
+const MODEL_TAVILY_MAIN_TITULAR = cleanEnv('MODEL_TAVILY_MAIN_TITULAR');
+const MODEL_TAVILY_MAIN_RESERVA = cleanEnv('MODEL_TAVILY_MAIN_RESERVA');
+
+// CHAVES PARA SE PRECISAR UTILIZAR ALGUM DIA
+const OPENROUTER_API_KEY = cleanEnv('OPENROUTER_API_KEY');
+const OPENROUTER_MODEL = cleanEnv('OPENROUTER_MODEL');
+const COHERE_API_KEY = cleanEnv('COHERE_API_KEY');
+
 
 // Define qual IA vai rodar (se estiver vazio, por segurança roda o gemini)
-const IA_PROVEDOR = cleanEnv('AI_PROVIDER'); // Opções: 'gemini' ou 'jina'
+const IA_PROVEDOR = cleanEnv('AI_PROVIDER'); // Opções: 'gemini' ou 'tavily'
+
+
+/* ========================================================================================
+  MÓDULO COHERE - DESATIVADO
+* ====================================================================================== */
+async function callCohereDirect(promptText) {
+
+  const url = "https://api.cohere.ai/v1/chat";
+
+  const response = await fetch(url, {
+
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${COHERE_API_KEY}`,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+
+    },
+
+    body: JSON.stringify({
+
+      "model": "command-r-plus-08-2024", 
+      "message": promptText,
+      "temperature": 0.4,
+      "connectors": [], // Você já envia os dados do Tavily no prompt, então não precisa de conectores extras
+      "response_format": { "type": "json_object" } // Mantém o seu padrão de JSON
+
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`[Cohere Error] ${data.message || "Erro na API"}`);
+  }
+
+  return data.text;
+}
+
+
+/* ========================================================================================
+  MÓDULO OPENROUTER - DESATIVADO
+* ====================================================================================== */
+async function callOpenRouterJSON(promptText) {
+  const url = "https://openrouter.ai/api/v1/chat/completions";
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://iasniper.vercel.app", // Recomendado pelo OpenRouter
+      "X-Title": "IA Sniper"
+    },
+    body: JSON.stringify({
+      "model": OPENROUTER_MODEL, // Ele puxa da variável dinâmica
+      "messages": [{ "role": "user", "content": promptText }],
+      "response_format": { "type": "json_object" }, // Força a saída em JSON estruturado
+      "temperature": 0.2
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+
+    const detalheErro = data.error ? JSON.stringify(data.error) : "Sem detalhes no corpo da resposta";
+    const statusHttp = response.status;
+
+    console.log(`\n\n[HTTP ${statusHttp}] Detalhes: ${detalheErro}\n\n`);
+
+
+    // 🕵️‍♂️ Aqui está o segredo: pegamos o código e os detalhes extras do provedor
+    const errorMsg = data.error?.message || "Erro desconhecido";
+    const errorCode = data.error?.code || response.status;
+    const metadata = data.error?.metadata
+      ? ` | Provedor Original: ${JSON.stringify(data.error.metadata)}`
+      : "";
+    throw new Error(data.error?.message || "Erro na API do OpenRouter");
+
+  }
+
+  return data.choices[0].message.content;
+}
+
 
 
 /* ========================================================================================
@@ -32,18 +124,17 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
 
   // 🔥 DETETIVE: Isso vai imprimir no painel da Vercel se a chave está realmente lá
   if (!TAVILY_API_KEY) {
+
     console.error("🚨 ERRO FATAL: TAVILY_API_KEY está VAZIA ou UNDEFINED no servidor!");
-  } else {
-    // Imprime apenas os 9 primeiros caracteres por segurança para você confirmar se é a chave certa
-    console.log(`🔑 Chave Tavily detectada: ${TAVILY_API_KEY.substring(0, 9)}...`);
-  }
+
+  } 
 
   const body = {
 
     query: queryTexto,
     search_depth: "basic",
     include_raw_content: true,
-    max_results: 3,
+    max_results: 5,
     days: diasBusca,
     include_answer: false,
     include_images: false,
@@ -82,7 +173,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
   // Constrói o texto mesclando as 4 fontes e cortando excessos (5000 caracteres por fonte)
   const conteudoUnificado = data.results.map(r => {
     // Se o raw_content vier vazio por algum motivo de bloqueio do site, usa o content (snippet) como backup
-    const conteudoReal = r.raw_content ? r.raw_content.substring(0, 6000) : r.content;
+    const conteudoReal = r.raw_content ? r.raw_content.substring(0, 7000) : r.content;
     return `FONTE: ${r.url}\nCONTEÚDO:\n${conteudoReal}`;
   }).join("\n\n---\n\n");
 
@@ -96,10 +187,10 @@ function limparTextoMarkdown(texto) {
 
 
 /* ========================================================================================
-  MÓDULO TAVILY SEARCH + GEMINI RAG (INJETADO)
+  MÓDULO TAVILY SEARCH - BASE
 * ====================================================================================== */
-
 async function buscarDadosCompletos(jogoObj) {
+
   const jogoNome = `${jogoObj.homeTeam} vs ${jogoObj.awayTeam}`;
   const liga = jogoObj.league.toLowerCase();
   const dataObj = new Date(jogoObj.kickoff);
@@ -161,6 +252,7 @@ async function buscarDadosCompletos(jogoObj) {
         statusPerformance: resPerf.status
       });
 
+
       if (resNoticias.status === 429 || resPerf.status === 429) {
         return "Indisponível - Limite de requisições Tavily atingido. Verifique o painel.";
       }
@@ -182,41 +274,105 @@ async function buscarDadosCompletos(jogoObj) {
 
 }
 
-// O Motor Duplo do Tavily (Fallback Automático para Lotes)
+
+// ==========================================================
+// O Motor Duplo do Tavily 
+// ==========================================================
 async function callGeminiWithTavilyLote(promptTexto, loteArray) {
-  // 🔥 CORREÇÃO AQUI: Usando a variável correta MODEL_TAVILY_MAIN
-  const modelsToTry = [MODEL_TAVILY_MAIN, MODEL_SNIPER];
 
-  for (let i = 0; i < modelsToTry.length; i++) {
-    const modelName = modelsToTry[i];
-    console.log(`🧠 [TAVILY] Tentativa ${i + 1}/2 - Enviando Dossiê do Lote para o modelo: ${modelName}`);
+  // ==========================================================
+  // TENTATIVA 1: GEMINI OFICIAL (Principal)
+  // ==========================================================
+
+  try {
+
+   
+    const modelName = MODEL_TAVILY_MAIN_TITULAR; 
+    console.log(`\n🧠 [TAVILY] Tentativa 1/2 - Fallback acionado: Enviando para GEMINI TITULAR: (${modelName})\n`);
+
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptTexto }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+      })
+    });
 
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: promptTexto }] }],
-          generationConfig: { temperature: 0.2, responseMimeType: "application/json" }
-        })
-      });
+    const data = await response.json();
 
-      const data = await response.json();
+    if (response.ok && data.candidates && data.candidates.length > 0) {
 
-      if (response.ok && data.candidates && data.candidates.length > 0) {
-        return JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        console.error(`❌ [TAVILY] Tentativa ${i + 1} falhou (API Recusou):`, data.error || data.promptFeedback);
-      }
-    } catch (err) {
-      console.error(`❌ [TAVILY] Erro técnico na tentativa ${i + 1}:`, err.message);
+      return JSON.parse(data.candidates[0].content.parts[0].text);
+
+    } else {
+
+      throw new Error(data.error?.message || "A API do Gemini recusou a conexão.");
+
     }
+
+  } catch (err) {
+
+    console.error(`\n❌ [TAVILY] Tentativa 1 falhou (Gemini Titular - ${MODEL_TAVILY_MAIN_TITULAR}):\n`, err.message);
+
+    // 🕵️‍♂️ NOVO: Envia o erro exato do Gemini para o Redis
+    await salvarLogErroRedis(`ERRO_API_GEMINI_TITULAR`, {
+      message: `[TIPO: GEMINI_FALHA_API] ${err.message}`,
+      stack: err.stack
+    });
+
   }
 
-  // 🔥 LOG NO REDIS: Se chegou aqui, todos os modelos falharam para o lote todo
+
+  // ==========================================================
+  // TENTATIVA 2: GEMINI BACKUP (Reserva)
+  // ==========================================================
+
+  try {
+
+    const modelName = MODEL_TAVILY_MAIN_RESERVA; 
+    console.log(`\n🧠 [TAVILY] Tentativa 2/2 - Fallback acionado: Enviando para GEMINI RESERVA: (${modelName})\n`);
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: promptTexto }] }],
+        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+      })
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.candidates && data.candidates.length > 0) {
+
+      return JSON.parse(data.candidates[0].content.parts[0].text);
+
+    } else {
+
+      throw new Error(data.error?.message || "A API do Gemini recusou a conexão.");
+
+    }
+
+  } catch (err) {
+
+    console.error(`\n❌ [TAVILY] Tentativa 2 falhou (Gemini Reserva - ${MODEL_TAVILY_MAIN_RESERVA}):\n`, err.message);
+
+    // 🕵️‍♂️ NOVO: Envia o erro exato do Gemini para o Redis
+    await salvarLogErroRedis(`ERRO_API_GEMINI_RESERVA`, {
+      message: `[TIPO: GEMINI_FALHA_API] ${err.message}`,
+      stack: err.stack
+    });
+
+  }
+
+  // ==========================================================
+  // FALHA FATAL: AS DUAS IAS CAÍRAM
+  // ==========================================================
   await salvarLogErroRedis(`TAVILY_TOTAL_BATCH_FAILURE`, {
-    message: "Ambos os modelos do Gemini Oficial e Backup falharam ao analisar o dossiê do lote.",
+    message: "Ambos os modelos (${MODEL_TAVILY_MAIN_TITULAR} e ${MODEL_TAVILY_MAIN_RESERVA}) falharam ao analisar o dossiê do lote.",
     jogosNoLote: loteArray.map(j => `${j.homeTeam} vs ${j.awayTeam}`).join(", ")
   });
 
@@ -657,7 +813,7 @@ export default async function handler(req, res) {
                 dossieCompleto += dadosTavily;
               }
 
-              console.log(`\n🧠 [LOTE ${numeroLote}] Enviando ÚNICA requisição para o Gemini avaliar os ${lote.length} jogos...`);
+              console.log(`\n🧠 [LOTE ${numeroLote}] Enviando ÚNICA requisição para a IA avaliar os ${lote.length} jogos...`);
               const promptPronto = montarPromptRAGLote(lote, dossieCompleto, date);
 
               // Chamando backup de outro modelo do gemini para analisar o lote inteiro
@@ -699,13 +855,19 @@ export default async function handler(req, res) {
           } catch (err) {
             console.error(`🚨 Erro no Lote ${numeroLote} (Tentativa ${tentativas}):`, err.message);
 
+            // 🕵️‍♂️ NOVO: Salva cada engasgo do Gemini Clássico no Redis
+            await salvarLogErroRedis(`ERRO_API_GEMINI_CLASSICO:LOTE_${numeroLote}_TENTATIVA_${tentativas}`, {
+              message: `[TIPO: GEMINI_CLASSICO_FALHA] ${err.message}`,
+              stack: err.stack
+            });
+
             if (tentativas < maxTentativas) {
               await new Promise(r => setTimeout(r, 4000));
             } else {
               console.error(`❌ [LOTE ${numeroLote}] FALHA TOTAL.`);
               await salvarLogErroRedis(`FALHA_CRITICA_LOTE_${numeroLote}`, {
-                msg: "Ambos os modelos falharam",
-                erroFinal: err.message
+                message: `[TIPO: FALHA_FATAL_LOTE] Todas as ${maxTentativas} tentativas falharam no motor clássico.`,
+                stack: err.stack || err.message
               });
               cardsDoLote = [];
             }
