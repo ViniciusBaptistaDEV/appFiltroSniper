@@ -357,7 +357,7 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray) {
 
     // 🕵️‍♂️ NOVO: Envia o erro exato do Gemini para o Redis
     await salvarLogErroRedis(`ERRO_API_GEMINI_TITULAR`, {
-      message: `[TIPO: GEMINI_FALHA_API] ${err.message}`,
+      message: `[TIPO: GEMINI_FALHA_API - MODELO: ${MODEL_TAVILY_MAIN_TITULAR}] - ERRO: ${err.message}`,
       stack: err.stack
     });
 
@@ -401,7 +401,7 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray) {
 
     // 🕵️‍♂️ NOVO: Envia o erro exato do Gemini para o Redis
     await salvarLogErroRedis(`ERRO_API_GEMINI_RESERVA`, {
-      message: `[TIPO: GEMINI_FALHA_API] ${err.message}`,
+      message: `[TIPO: GEMINI_FALHA_API - MODELO: ${MODEL_TAVILY_MAIN_RESERVA}] - ERRO: ${err.message}`,
       stack: err.stack
     });
 
