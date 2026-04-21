@@ -51,7 +51,7 @@ async function callCohereDirect(promptText) {
 
     body: JSON.stringify({
 
-      "model": "command-r-plus-08-2024", 
+      "model": "command-r-plus-08-2024",
       "message": promptText,
       "temperature": 0.4,
       "connectors": [], // Você já envia os dados do Tavily no prompt, então não precisa de conectores extras
@@ -125,9 +125,9 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
   // 🔥 DETETIVE: Isso vai imprimir no painel da Vercel se a chave está realmente lá
   if (!TAVILY_API_KEY) {
 
-    console.error("🚨 ERRO FATAL: TAVILY_API_KEY está VAZIA ou UNDEFINED no servidor!");
+    console.error("🚨 ERRO FATAL: TAVILY_API_KEY está VAZIA ou INCORRETA no servidor!");
 
-  } 
+  }
 
   const body = {
 
@@ -155,29 +155,68 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
     ]
   };
 
-  const response = await fetch('https://api.tavily.com/search', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${TAVILY_API_KEY}`
-    },
-    body: JSON.stringify(body)
-  });
 
-  if (!response.ok) {
-    return { ok: false, status: response.status };
+  let tentativas = 0;
+  const maxTentativas = 2; // Tenta a primeira vez. Se der 502, tenta mais uma.
+
+  while (tentativas < maxTentativas) {
+    tentativas++;
+
+    try {
+
+      const response = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${TAVILY_API_KEY}`
+        },
+        body: JSON.stringify(body)
+      });
+      // ✅ SUCESSO: Se a resposta for OK, monta o texto e sai do loop
+      if (response.ok) {
+        const data = await response.json();
+
+        // Constrói o texto mesclando as fontes
+        const conteudoUnificado = data.results.map(r => {
+          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 7000) : r.content;
+
+          console.log(`\n\nFONTE: ${r.url}\n\n`);
+
+          return `FONTE: ${r.url}\nCONTEÚDO:\n${conteudoReal}`;
+        }).join("\n\n---\n\n");
+
+        return { ok: true, texto: conteudoUnificado };
+      }
+
+      // ⚠️ ERRO DE SERVIDOR (500, 502, 503, 504): Faz o Retry se ainda tiver tentativas
+      if (response.status >= 500 && tentativas < maxTentativas) {
+
+        console.log(`🔄 [TAVILY RETRY] Erro ${response.status} na busca '${tipoBusca}'. Aguardando 4s antes de tentar novamente...`);
+
+        await new Promise(r => setTimeout(r, 4000)); // Delay de 4 segundos
+        continue; // Volta para o início do while para a tentativa 2
+
+      }
+
+      // ❌ FALHA DEFINITIVA OU ERRO 400/429/401: Retorna o erro imediatamente sem retry
+      return { ok: false, status: response.status };
+
+    } catch (error) {
+
+      // ⚠️ ERRO DE REDE (Timeout, queda de conexão): Trata igual erro de servidor
+      if (tentativas < maxTentativas) {
+
+        console.log(`🔄 [TAVILY RETRY] Falha de conexão na busca '${tipoBusca}'. Aguardando 4s antes de tentar novamente...`);
+        await new Promise(r => setTimeout(r, 4000));
+
+      } else {
+
+        console.error(`❌ [TAVILY] Falha total de conexão após ${maxTentativas} tentativas:`, error.message);
+        return { ok: false, status: 500 };
+        
+      }
+    }
   }
-
-  const data = await response.json();
-
-  // Constrói o texto mesclando as 4 fontes e cortando excessos (5000 caracteres por fonte)
-  const conteudoUnificado = data.results.map(r => {
-    // Se o raw_content vier vazio por algum motivo de bloqueio do site, usa o content (snippet) como backup
-    const conteudoReal = r.raw_content ? r.raw_content.substring(0, 7000) : r.content;
-    return `FONTE: ${r.url}\nCONTEÚDO:\n${conteudoReal}`;
-  }).join("\n\n---\n\n");
-
-  return { ok: true, texto: conteudoUnificado };
 }
 
 function limparTextoMarkdown(texto) {
@@ -286,8 +325,8 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray) {
 
   try {
 
-   
-    const modelName = MODEL_TAVILY_MAIN_TITULAR; 
+
+    const modelName = MODEL_TAVILY_MAIN_TITULAR;
     console.log(`\n🧠 [TAVILY] Tentativa 1/2 - Fallback acionado: Enviando para GEMINI TITULAR: (${modelName})\n`);
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
@@ -331,7 +370,7 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray) {
 
   try {
 
-    const modelName = MODEL_TAVILY_MAIN_RESERVA; 
+    const modelName = MODEL_TAVILY_MAIN_RESERVA;
     console.log(`\n🧠 [TAVILY] Tentativa 2/2 - Fallback acionado: Enviando para GEMINI RESERVA: (${modelName})\n`);
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
