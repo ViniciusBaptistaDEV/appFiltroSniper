@@ -5,6 +5,7 @@
 import { buscarJogos } from "./football.js";
 import { montarPromptSniper } from "./buildPrompt.js";
 import { montarPromptRAGLote } from "./buildPromptTavily.js";
+import { buscarDadosMatematicosBSD } from "./busca_bsd.js";
 import { obterOddsDoDia, buscarOddsParaCard } from "./oddsFetcher.js";
 
 // Função para limpar as chaves da Vercel (evita erro de aspas invisíveis)
@@ -134,7 +135,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
     query: queryTexto,
     search_depth: "basic",
     include_raw_content: true,
-    max_results: 5,
+    max_results: 3,
     days: diasBusca,
     include_answer: false,
     include_images: false,
@@ -151,7 +152,10 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
       "betano.com",
       "reddit.com",
       "quora.com",
-      "sportingbet.com"
+      "sportingbet.com",
+      "cbssports.com",
+      "telecomasia.net",
+      "nba.com"
     ]
   };
 
@@ -178,9 +182,9 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
 
         // Constrói o texto mesclando as fontes
         const conteudoUnificado = data.results.map(r => {
-          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 7000) : r.content;
+          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 5000) : r.content;
 
-          console.log(`\n\nFONTE: ${r.url}\n\n`);
+          // console.log(`\n\nFONTE: ${r.url}\n`);
 
           return `FONTE: ${r.url}\nCONTEÚDO:\n${conteudoReal}`;
         }).join("\n\n---\n\n");
@@ -213,7 +217,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
 
         console.error(`❌ [TAVILY] Falha total de conexão após ${maxTentativas} tentativas:`, error.message);
         return { ok: false, status: 500 };
-        
+
       }
     }
   }
@@ -300,10 +304,40 @@ async function buscarDadosCompletos(jogoObj) {
     }
 
     // Aplica a limpeza final para tirar sujeiras de Markdown que o Tavily possa ter deixado
-    const textoNoticias = limparTextoMarkdown(resNoticias.texto);
-    const textoPerf = limparTextoMarkdown(resPerf.texto);
+    // const textoNoticias = limparTextoMarkdown(resNoticias.texto);
+    // const textoPerf = limparTextoMarkdown(resPerf.texto);
+    // return `\n--- PARTE 1: NOTÍCIAS ---\n${textoNoticias}\n--- PARTE 2: ESTATÍSTICAS ---\n${textoPerf}\n`;
 
-    return `\n--- PARTE 1: NOTÍCIAS ---\n${textoNoticias}\n--- PARTE 2: ESTATÍSTICAS ---\n${textoPerf}\n`;
+
+    // --- FUNÇÃO DE ESTRUTURAÇÃO INTERNA ---
+    const formatarFontes = (tavilyRes, categoria) => {
+      if (!tavilyRes.results || tavilyRes.results.length === 0) return `[${categoria}]: Nenhuma informação encontrada.\n`;
+
+      return tavilyRes.results.map((fonte, i) => {
+        // Limpeza de ruído e limite de caracteres para economizar tokens
+        const conteudoLimpo = limparTextoMarkdown(fonte.content)
+          .replace(/\s+/g, ' ') // Remove espaços e quebras de linha excessivas
+
+        return `   🔹 FONTE ${i + 1} [${categoria}]: ${fonte.title}\n   🔗 URL: ${fonte.url}\n   📝 CONTEÚDO: ${conteudoLimpo}\n`;
+      }).join("\n");
+
+    };
+
+    // 2. Montagem do Bloco Estruturado
+    const secaoNoticias = formatarFontes(resNoticias, "NOTÍCIAS/DESFALQUES");
+    const secaoPerformance = formatarFontes(resPerf, "PERFORMANCE/ESTATÍSTICAS");
+
+    return `
+### [INFORMAÇÕES DA WEB - TAVILY]
+
+--- PARTE 1: NOTÍCIAS E DISPONIBILIDADE ---
+${secaoNoticias}
+
+--- PARTE 2: PERFORMANCE E ANÁLISE TÁTICA ---
+${secaoPerformance}
+
+`;
+
 
   } catch (error) {
     await salvarLogErroRedis(`TAVILY_SCRAPE_EXCEPTION:${jogoNome}`, error);
@@ -588,7 +622,7 @@ async function callGeminiJSON(promptText, model = "gemini-2.5-flash", useSearch 
   const payload = {
     contents: [{ role: "user", parts: [{ text: promptText }] }],
     generationConfig: {
-      temperature: 0,
+      temperature: 0.1,
     }
   };
 
@@ -843,16 +877,37 @@ export default async function handler(req, res) {
                 // Pausa de 5s mantida para evitar Rate Limit e manter a estabilidade no servidor serverless
                 await new Promise(r => setTimeout(r, idx * 5000));
 
-                console.log(`⚽ Buscando Dossiê via Tavily ${idx + 1}/${lote.length}: ${jogo.homeTeam} vs ${jogo.awayTeam}`);
-                const dadosTavily = await buscarDadosCompletos(jogo);
+                console.log(`⚽ Processando Jogo - [LOTE ${numeroLote}] - ${idx + 1}/${lote.length}: ${jogo.homeTeam} vs ${jogo.awayTeam}`);
+
+                // 🔥 BUSCA DUPLA EM PARALELO: Matemática (BSD) + Notícias (Tavily)
+                const [dadosTavily, dadosMatematicos] = await Promise.all([
+                  buscarDadosCompletos(jogo),      // Sua função atual do Tavily
+                  buscarDadosMatematicosBSD(jogo)  // Sua nova função da BSD
+                ]);
+
+                // Formatando os dados da BSD para texto para que o Gemini entenda facilmente
+                const blocoMatematico = dadosMatematicos
+                  ? `--- PARTE A: MÉTRICAS MATEMÁTICAS (BSD) ---\n${JSON.stringify(dadosMatematicos, null, 2)}\n`
+                  : `--- PARTE A: MÉTRICAS MATEMÁTICAS (BSD) ---\nDados indisponíveis na base matemática.\n`;
+
+                console.log(`===================================================================\n`);
+                console.log(`⚽ Bloco Matematico API BSD - [LOTE ${numeroLote}] - ${idx + 1}/${lote.length}: ${jogo.homeTeam} vs ${jogo.awayTeam}`);
+                console.log(`${blocoMatematico}`);
+                console.log(`===================================================================\n`);
 
                 dossieCompleto += `\n\n===================================================================\n`;
                 dossieCompleto += `📌 DADOS DO JOGO ${idx + 1}: ${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league})\n`;
                 dossieCompleto += `===================================================================\n`;
+
+                // Injetamos a BSD antes das notícias do Tavily
+                dossieCompleto += `\n--- [FONTE A: BSD - MÉTRICAS MATEMÁTICAS OFICIAIS] ---\n`;
+                dossieCompleto += blocoMatematico;
+                dossieCompleto += `\n\n--- [FONTE B: TAVILY - CONTEXTO WEB E DISPONIBILIDADE] ---\n`;
                 dossieCompleto += dadosTavily;
+                dossieCompleto += `\n[FIM DOS DADOS DO JOGO ${idx + 1}]\n`;
               }
 
-              console.log(`\n🧠 [LOTE ${numeroLote}] Enviando ÚNICA requisição para a IA avaliar os ${lote.length} jogos...`);
+              console.log(`\n🧠 [LOTE ${numeroLote}] Enviando requisição para a IA avaliar os ${lote.length} jogos...`);
               const promptPronto = montarPromptRAGLote(lote, dossieCompleto, date);
 
               // Chamando backup de outro modelo do gemini para analisar o lote inteiro

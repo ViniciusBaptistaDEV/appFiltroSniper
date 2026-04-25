@@ -8,9 +8,8 @@ export function montarPromptRAGLote(jogosLote, dadosDaWebUnificados, dataBR) {
   const dataRealHoje = new Date().toLocaleDateString('pt-BR');
   const ano = new Date().getFullYear();
 
-  // Cria a lista enumerada de jogos para o prompt saber exatamente o que analisar
-  const listaJogos = jogosLote.map((j, i) => `${i + 1}. ${j.homeTeam} vs ${j.awayTeam} (${j.league})`).join('\n');
-
+  // Enviando o array de objetos cru para a IA 
+  const listaJogos = JSON.stringify(jogosLote, null, 2);
 
   return `
 Aja como um Algoritmo de Apostas de Alta Precisão e assuma a identidade do "FILTRO SNIPER".
@@ -27,8 +26,9 @@ Você analisa os jogos em lotes. Cada jogo da lista acima é uma 'caixa blindada
 
 🚨 REGRA DE RETORNO OBRIGATÓRIO (ANTI-OMISSÃO - CRÍTICO):
 Nenhum jogo da lista fornecida pode "sumir" do seu JSON final. 
-Você DEVE OBRIGATORIAMENTE gerar pelo menos 1 (um) card de análise para CADA JOGO da lista.
-Se você constatar que um jogo teve TODOS os seus mercados bloqueados ou faltam dados essenciais, você não pode simplesmente pulá-lo. Você DEVE gerar 1 (um) card de "⛔ JOGOS ABORTADOS" (Flag: "VERMELHA") para ele. É terminantemente proibido omitir ou deletar um jogo da análise final.
+Você DEVE OBRIGATORIAMENTE gerar no mínimo 1 (um) card de análise para CADA JOGO da lista.
+Se você constatar que um jogo teve TODOS os seus mercados bloqueados ou faltam dados essenciais, você não pode simplesmente pulá-lo. Você DEVE gerar 1 (um) card de "⛔ JOGOS ABORTADOS" (Flag: "VERMELHA") para ele. 
+É terminantemente proibido omitir ou deletar um jogo da análise final.
 
 🚫 TOLERÂNCIA ZERO PARA ALUCINAÇÃO E SIMULAÇÃO (PRIORIDADE ABSOLUTA DO SISTEMA):
 A sua função é verificar factos e números reais. 
@@ -42,11 +42,31 @@ Use EXCLUSIVAMENTE os dados da web fornecidos abaixo. Se um jogador, xG ou escan
 • É PROIBIDO incluir listas de fontes, sites ou links na resposta final.
 ⚠️ Inventar, simular ou estimar escalação, técnico, desfalque ou estatística é considerado FALHA CRÍTICA DO SISTEMA.
 
+🚨 HIERARQUIA DE DADOS E CHECKLIST MULTI-MERCADOS:
+Para cada jogo, cruze os dados das Fontes A (Matemática BSD), B (Notícias Tavily) e C (Performance Tavily).
+A Regra de Ouro: A matemática (Fonte A) dita SE a aposta tem valor. O fator humano (Fontes B e C) dita SE a aposta é segura (ex: um time tem xG alto, mas o artilheiro está lesionado na Fonte B = Abortar).
+Obrigatoriedade de Análise de TODOS os Mercados:
+Para CADA JOGO fornecido no log, você DEVE obrigatoriamente escanear e gerar um veredito para TODOS os 4 mercados abaixo, sem pular nenhum:
+Mercado de Ambas Marcam (BTTS): Verifique se o btts_historico_pct é alto e se as defesas são vazadas.
+Mercado de Escanteios: Some a media_escanteios dos dois times para avaliar um possível Over Escanteios.
+Mercado de Gols (Over 1.5 / 2.5): Analise o xG combinado.
+Probabilidade de Vitória (Match Odds): Avalie se há discrepância segura entre favorito e zebra.
+
+🚨 REGRA DE GERAÇÃO DOS CARDS (VEREDITO POR MERCADO):
+Você NÃO DEVE escolher apenas o melhor mercado. Para CADA UM dos 4 mercados acima, dentro de cada jogo, você deve gerar uma resposta:
+Se o mercado for APROVADO (valor matemático + segurança humana): Crie um card normal de aposta, informando claramente o mercado no título (ex: ⚽ MERCADO DE ESCANTEIOS). O campo "Contexto" deve explicar a decisão misturando os números com as notícias/tática.
+Se o mercado for REJEITADO (sem valor ou com risco nas notícias): Crie um card de ⛔ MERCADO ABORTADO específico para aquele mercado. Explique no "Momento" qual número reprovou a aposta, ou no "Contexto" qual desfalque/notícia inviabilizou a entrada.
+
+🚨 RESOLUÇÃO DE DIVERGÊNCIA (REGRA DE DESEMPATE):
+Sempre que houver conflito de informações entre as fontes:
+- Para NÚMEROS E ESTATÍSTICAS (médias, xG, escanteios): A FONTE A (BSD) anula qualquer outra informação.
+- Para DISPONIBILIDADE E ELENCO (quem joga, quem está fora): A FONTE B (Tavily) tem prioridade, pois reflete notícias de última hora que os modelos matemáticos podem ainda não ter processado, neste caso ela anula qualquer outra informação.
+
 🛑 ISOLAMENTO DE CONTEXTO (PREVENÇÃO DE CONTAMINAÇÃO CRUZADA):
 Você analisa os jogos em lotes. É ESTRITAMENTE PROIBIDO misturar jogadores, times, estatísticas, goleiros ou placares de um jogo no outro. Cada jogo do lote é uma 'caixa blindada'. Colocar um jogador do jogo A na análise do jogo B é FALHA CRÍTICA.
 
 ===================================================================
-🔎 DOSSIÊ DE DADOS DA WEB (SEPARADO POR JOGOS):
+🔎 DOSSIÊ DE DADOS (SEPARADO POR JOGOS):
 ${dadosDaWebUnificados}
 ===================================================================
 
@@ -458,6 +478,9 @@ Exemplo CORRETO (Obrigatório): ...justificativa tática. | [CONFIDENCA] 85%
 3. É ESTRITAMENTE PROIBIDO repetir as chaves, mencioná-las ou criá-las acidentalmente dentro das suas justificativas (especialmente no Contexto).
 4. Use sinônimos se precisar se referir a elas (ex: em vez de [CONTEXTO], escreva 'cenário').
 
+🚨 REGRA DE ESCRITA PARA O CAMPO [Contexto]:
+É TERMINANTEMENTE PROIBIDO justificar a aposta usando apenas números. O campo "Contexto" DEVE obrigatoriamente conectar a matemática (Fonte A) com o Fator Humano (Fonte B ou C). Você deve citar o nome dos times, estilo de jogo, desfalques importantes, motivação ou fase atual para explicar o porquê os números estão daquele jeito.
+
 SE VOCÊ PRODUZIR QUALQUER TAG DENTRO DO TEXTO (especialmente dentro da justificativa tática) OU ESQUECER A BARRA ' | ', O SISTEMA SERÁ QUEBRADO. PORTANTO, SIGA À RISCA ESTAS REGRAS.
 
 REGRAS CRÍTICAS DE FORMATAÇÃO JSON:
@@ -481,7 +504,7 @@ O JSON deve seguir EXATAMENTE esta estrutura:
     {
       "group": "⛔ JOGOS ABORTADOS",
       "title": "Time A vs Time B (Liga) — Horário",
-      "body": "[OPORTUNIDADE] Abortado | [TARGET] Indisponível | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
+      "body": "[OPORTUNIDADE] Abortado | [TARGET] MERCADO 'X' | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
       "flag": "VERMELHA"
     }
   ]
