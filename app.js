@@ -410,6 +410,11 @@ function renderSectionsAsCards(sections) {
                     return `🕒 Início: ${horaLocal}`;
                 }
 
+                // significa que a IA errou. Retornamos vazio ou o padrão.
+                if (timeStr.includes('-') && !timeStr.includes(':')) {
+                    return '🕒 Início: --:--';
+                }
+
                 return `🕒 Início: ${timeStr.replace('Z', '').replace('UTC', '')}`;
             })()}
                     </div>
@@ -759,9 +764,9 @@ async function verificarCacheRedis(dataSelecionada) {
 
             // 🔥 DESTRAVA o botão quando o servidor responder
             if (btnAnalisar) {
-                    btnAnalisar.disabled = false;
-                    btnAnalisar.style.cursor = "pointer";
-                    btnAnalisar.style.opacity = "1";
+                btnAnalisar.disabled = false;
+                btnAnalisar.style.cursor = "pointer";
+                btnAnalisar.style.opacity = "1";
             }
 
         }

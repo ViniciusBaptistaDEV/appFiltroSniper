@@ -482,7 +482,7 @@ Exemplo CORRETO (Obrigatório): ...justificativa tática. | [CONFIDENCA] 85%
 3. É ESTRITAMENTE PROIBIDO repetir as chaves, mencioná-las ou criá-las acidentalmente dentro das suas justificativas (especialmente no Contexto).
 4. Use sinônimos se precisar se referir a elas (ex: em vez de [CONTEXTO], escreva 'cenário').
 
-SE VOCÊ PRODUZIR QUALQUER TAG DENTRO DO TEXTO (especialmente dentro da justificativa tática) OU ESQUECER A BARRA ' | ', O SISTEMA SERÁ QUEBRADO. PORTANTO, SIGA À RISCA ESTAS REGRAS.
+⚠️ SE VOCÊ PRODUZIR QUALQUER TAG DENTRO DO TEXTO (especialmente dentro da justificativa tática) OU ESQUECER A BARRA ' | ', O SISTEMA SERÁ QUEBRADO. PORTANTO, SIGA À RISCA ESTAS REGRAS.
 
 REGRAS CRÍTICAS DE FORMATAÇÃO JSON:
 1. NUNCA, em hipótese alguma, use aspas duplas (") DENTRO dos campos de texto (body, title, group, etc). 

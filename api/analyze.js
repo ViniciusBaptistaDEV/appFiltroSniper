@@ -135,7 +135,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
     query: queryTexto,
     search_depth: "basic",
     include_raw_content: true,
-    max_results: 3,
+    max_results: 4,
     days: diasBusca,
     include_answer: false,
     include_images: false,
@@ -182,7 +182,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
 
         // Constrói o texto mesclando as fontes
         const conteudoUnificado = data.results.map(r => {
-          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 5000) : r.content;
+          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 6000) : r.content;
 
           // console.log(`\n\nFONTE: ${r.url}\n`);
 

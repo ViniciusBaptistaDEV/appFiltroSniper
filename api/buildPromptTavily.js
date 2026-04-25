@@ -490,6 +490,11 @@ REGRAS CRÍTICAS DE FORMATAÇÃO JSON:
 4. DINAMISMO DE GRUPOS: 
    - Se o mercado for aprovado, use o nome do grupo correspondente (ex: "🏆 RADAR DE VITÓRIAS", "⚽ MERCADO DE GOLS", etc).
    - Se o mercado for ABORTADO (Confiança 0% ou Flag Vermelha), você DEVE obrigatoriamente mudar o campo "group" para "⛔ JOGOS ABORTADOS".
+5. FORMATAÇÃO DE HORÁRIOS (CRÍTICO): 
+No campo title, você deve extrair o horário do campo kickoff fornecido no JSON de entrada. Exiba APENAS as horas e minutos no formato HH:mm. 
+É terminantemente proibido incluir o ano, o mês ou o dia no campo title.
+Exemplo Correto: Liverpool vs Crystal Palace (Premier League) — 15:00
+Exemplo Errado: Liverpool vs Crystal Palace (Premier League) — 2026-04-25
 
 O JSON deve seguir EXATAMENTE esta estrutura:
 {
@@ -497,13 +502,13 @@ O JSON deve seguir EXATAMENTE esta estrutura:
   "sections": [
     {
       "group": "🏆 RADAR DE VITÓRIAS",
-      "title": "Nome Casa vs Nome Fora (Liga) — Horário",
+      "title": "Nome Casa vs Nome Fora (Liga) — 15:30",
       "body": "[OPORTUNIDADE] Casa Vence | [TARGET] Nome do time ou mercado | [MOMENTO] Justificativa | [CONTEXTO] Justificativa Tática | [CONFIDENCA] 85%",
       "flag": "VERDE" 
     },
     {
       "group": "⛔ JOGOS ABORTADOS",
-      "title": "Time A vs Time B (Liga) — Horário",
+      "title": "Time A vs Time B (Liga) — 15:30",
       "body": "[OPORTUNIDADE] Abortado | [TARGET] MERCADO 'X' | [MOMENTO] Liga fora do escopo / Dados vazios | [CONTEXTO] Bloqueio de segurança | [CONFIDENCA] 0%",
       "flag": "VERMELHA"
     }
