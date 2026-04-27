@@ -3,8 +3,6 @@
 radarAPIGemini.js
 coletor.js
 testeAPIGemini.js
-teste_Jina.js
 dicionario_times_backup.json
-mapear_times.js
-teste_BSD.js
 validar_dicionario.js
+listar_times_bsd.js

@@ -21,7 +21,9 @@ const GEMINI_API_KEY = cleanEnv('GEMINI_API_KEY');
 
 const TAVILY_API_KEY = cleanEnv('TAVILY_API_KEY');
 const MODEL_TAVILY_MAIN_TITULAR = cleanEnv('MODEL_TAVILY_MAIN_TITULAR');
-const MODEL_TAVILY_MAIN_RESERVA = cleanEnv('MODEL_TAVILY_MAIN_RESERVA');
+const MODEL_TAVILY_MAIN_RESERVA_1 = cleanEnv('MODEL_TAVILY_MAIN_RESERVA_1');
+const MODEL_TAVILY_MAIN_RESERVA_2 = cleanEnv('MODEL_TAVILY_MAIN_RESERVA_2');
+const MODEL_TAVILY_MAIN_RESERVA_3 = cleanEnv('MODEL_TAVILY_MAIN_RESERVA_3');
 
 // CHAVES PARA SE PRECISAR UTILIZAR ALGUM DIA
 const OPENROUTER_API_KEY = cleanEnv('OPENROUTER_API_KEY');
@@ -348,118 +350,108 @@ ${secaoPerformance}
 }
 
 
+
 // ==========================================================
-// O Motor Duplo do Tavily 
+// O Motor de Fallback em Esteira (Titular + 3 Reservas)
 // ==========================================================
-async function callGeminiWithTavilyLote(promptTexto, loteArray) {
+async function callGeminiWithTavilyLote(promptTexto, loteArray, numeroLote = "N/A") {
 
-  // ==========================================================
-  // TENTATIVA 1: GEMINI OFICIAL (Principal)
-  // ==========================================================
+  // 1. Configuração da Esteira de Modelos de Contingência
+  const esteiraModelos = [
+    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 150000}, // 2,5 minutos pro Titular pensar
+    { nome: "RESERVA 1", modeloId: MODEL_TAVILY_MAIN_RESERVA_1, timeoutStr: 60000 }, // 60s pros mais rápidos
+    { nome: "RESERVA 2", modeloId: MODEL_TAVILY_MAIN_RESERVA_2, timeoutStr: 60000 },
+    { nome: "RESERVA 3", modeloId: MODEL_TAVILY_MAIN_RESERVA_3, timeoutStr: 60000 }
+  ];
 
-  try {
+  // 2. Loop de Tentativas (Processa na ordem até obter sucesso)
+  for (let i = 0; i < esteiraModelos.length; i++) {
+    const { nome, modeloId, timeoutStr } = esteiraModelos[i];
 
-
-    const modelName = MODEL_TAVILY_MAIN_TITULAR;
-    console.log(`\n🧠 [TAVILY] Tentativa 1/2 - Fallback acionado: Enviando para GEMINI TITULAR: (${modelName})\n`);
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptTexto }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-      })
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.candidates && data.candidates.length > 0) {
-
-      return JSON.parse(data.candidates[0].content.parts[0].text);
-
-    } else {
-
-      throw new Error(data.error?.message || "A API do Gemini recusou a conexão.");
-
+    // Trava de segurança: Pula a tentativa se a variável de ambiente não estiver preenchida na Vercel
+    if (!modeloId) {
+      console.log(`⚠️ [SISTEMA - LOTE ${numeroLote}] Pulando GEMINI ${nome} pois a chave/nome do modelo não foi configurada.`);
+      continue;
     }
 
-  } catch (err) {
 
-    console.error(`\n❌ [TAVILY] Tentativa 1 falhou (Gemini Titular - ${MODEL_TAVILY_MAIN_TITULAR}):\n`, err.message);
+    // ⏱️ CRIANDO O CRONÔMETRO (AbortController)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutStr);
 
-    // 🕵️‍♂️ NOVO: Envia o erro exato do Gemini para o Redis
-    await salvarLogErroRedis(`ERRO_API_GEMINI_TITULAR`, {
-      message: `[TIPO: GEMINI_FALHA_API - MODELO: ${MODEL_TAVILY_MAIN_TITULAR}] - ERRO: ${err.message}`,
-      stack: err.stack
-    });
+    try {
+      console.log(`\n🧠 [SISTEMA - LOTE ${numeroLote}] Tentativa ${i + 1}/${esteiraModelos.length} - Acionando GEMINI ${nome}: (${modeloId})\n`);
 
-  }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modeloId}:generateContent?key=${GEMINI_API_KEY}`;
 
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptTexto }] }],
+          generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+        }),
+        signal: controller.signal // 🔴 CONECTANDO O CRONÔMETRO AO FETCH
+      });
 
-  // ==========================================================
-  // TENTATIVA 2: GEMINI BACKUP (Reserva)
-  // ==========================================================
+      clearTimeout(timeoutId); // 🟢 Se respondeu a tempo, desativa a bomba!
 
-  try {
+      const data = await response.json();
 
-    const modelName = MODEL_TAVILY_MAIN_RESERVA;
-    console.log(`\n🧠 [TAVILY] Tentativa 2/2 - Fallback acionado: Enviando para GEMINI RESERVA: (${modelName})\n`);
+      if (response.ok && data.candidates && data.candidates.length > 0) {
+        // ✅ SUCESSO! Interrompe o loop e devolve o JSON perfeitamente parseado.
+        return JSON.parse(data.candidates[0].content.parts[0].text);
+      } else {
+        throw new Error(data.error?.message || "A API do Gemini recusou a conexão ou retornou vazio.");
+      }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptTexto }] }],
-        generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-      })
-    });
+    } catch (err) {
 
-    const data = await response.json();
+      clearTimeout(timeoutId); // Garante que o cronômetro pare se der outro erro
 
-    if (response.ok && data.candidates && data.candidates.length > 0) {
+      // Verifica se o erro foi causado pelo nosso Timeout
+      const isTimeout = err.name === 'AbortError';
+      const msgErro = isTimeout
+        ? `TIMEOUT: Demorou mais de ${timeoutStr / 1000}s e foi abortado para salvar a Vercel.`
+        : err.message;
 
-      return JSON.parse(data.candidates[0].content.parts[0].text);
+      console.error(`\n❌ [SISTEMA - LOTE ${numeroLote}] Tentativa ${i + 1} falhou (Gemini ${nome} - ${modeloId}):\n`, err.message);
 
-    } else {
+      // 🕵️‍♂️ Salva o erro exato desta IA específica no Redis Upstash
+      await salvarLogErroRedis(`ERRO_API_GEMINI_${nome.replace(' ', '_')}_LOTE_${numeroLote}`, {
+        lote: numeroLote,
+        message: `[TIPO: GEMINI_FALHA_API - MODELO: ${modeloId}] - ERRO: ${msgErro}`,
+        stack: err.stack
+      });
 
-      throw new Error(data.error?.message || "A API do Gemini recusou a conexão.");
-
+      // O bloco 'catch' absorve o erro e o 'for' continua naturalmente para a próxima IA da esteira.
     }
-
-  } catch (err) {
-
-    console.error(`\n❌ [TAVILY] Tentativa 2 falhou (Gemini Reserva - ${MODEL_TAVILY_MAIN_RESERVA}):\n`, err.message);
-
-    // 🕵️‍♂️ NOVO: Envia o erro exato do Gemini para o Redis
-    await salvarLogErroRedis(`ERRO_API_GEMINI_RESERVA`, {
-      message: `[TIPO: GEMINI_FALHA_API - MODELO: ${MODEL_TAVILY_MAIN_RESERVA}] - ERRO: ${err.message}`,
-      stack: err.stack
-    });
-
   }
 
   // ==========================================================
-  // FALHA FATAL: AS DUAS IAS CAÍRAM
+  // ⛔ FALHA FATAL: TODAS AS IAS DA ESTEIRA CAÍRAM
   // ==========================================================
-  await salvarLogErroRedis(`TAVILY_TOTAL_BATCH_FAILURE`, {
-    message: "Ambos os modelos (${MODEL_TAVILY_MAIN_TITULAR} e ${MODEL_TAVILY_MAIN_RESERVA}) falharam ao analisar o dossiê do lote.",
+
+  // Mapeia apenas os nomes dos modelos que realmente tentaram rodar
+  const modelosTentados = esteiraModelos.map(m => m.modeloId).filter(Boolean).join(", ");
+
+  await salvarLogErroRedis(`TAVILY_TOTAL_BATCH_FAILURE_LOTE_${numeroLote}`, {
+    message: `Falha Crítica: Todos os modelos da esteira de fallback falharam no LOTE ${numeroLote}. (Tentados: ${modelosTentados}).`,
     jogosNoLote: loteArray.map(j => `${j.homeTeam} vs ${j.awayTeam}`).join(", ")
   });
 
-  console.error(`🚨 [TAVILY FATAL] Modelos falharam para o lote inteiro. Gerando Cards Abortados.`);
+  console.error(`🚨 [TAVILY FATAL] A Esteira Inteira (4 Modelos) falhou. Gerando Cards Abortados de segurança.`);
 
   const fallbackSections = loteArray.map(jogo => ({
     group: "⛔ JOGOS ABORTADOS",
     title: `${jogo.homeTeam} vs ${jogo.awayTeam} (${jogo.league})`,
-    body: "[OPORTUNIDADE] Abortado | [TARGET] Indisponível | [MOMENTO] Falha de processamento nas IAs de retaguarda (Overload). | [CONTEXTO] Bloqueio de segurança gerado devido a falhas de comunicação com a IA durante o processamento em lote. | [CONFIDENCA] 0%",
+    body: "[OPORTUNIDADE] Abortado | [TARGET] Indisponível | [MOMENTO] Falha de processamento nas IAs de retaguarda (Overload). | [CONTEXTO] Bloqueio de segurança gerado devido a falhas de comunicação com TODA a esteira de IAs durante o processamento em lote. | [CONFIDENCA] 0%",
     flag: "VERMELHA"
   }));
 
   return { sections: fallbackSections };
 }
+
 
 
 /* ========================================================================================
@@ -877,13 +869,43 @@ export default async function handler(req, res) {
                 // Pausa de 5s mantida para evitar Rate Limit e manter a estabilidade no servidor serverless
                 await new Promise(r => setTimeout(r, idx * 5000));
 
-                console.log(`⚽ Processando Jogo - [LOTE ${numeroLote}] - ${idx + 1}/${lote.length}: ${jogo.homeTeam} vs ${jogo.awayTeam}`);
+                console.log(`\n⚽ Processando Jogo - [LOTE ${numeroLote}] - ${idx + 1}/${lote.length}: ${jogo.homeTeam} vs ${jogo.awayTeam}\n`);
 
                 // 🔥 BUSCA DUPLA EM PARALELO: Matemática (BSD) + Notícias (Tavily)
                 const [dadosTavily, dadosMatematicos] = await Promise.all([
                   buscarDadosCompletos(jogo),      // Sua função atual do Tavily
                   buscarDadosMatematicosBSD(jogo)  // Sua nova função da BSD
                 ]);
+
+
+
+                // ==============================================================================
+                // 👇 ALERTA DE DICIONÁRIO E REDIS QUANDO A BSD FALHA 👇
+                // ==============================================================================
+                if (!dadosMatematicos) {
+                  console.log(`⚠️ [BSD - DICIONÁRIO] Falha no Lote ${numeroLote}: Jogo não encontrado na BSD (${jogo.homeTeam} vs ${jogo.awayTeam}). Enviando pro Redis...`);
+
+                  const chaveRedis = `FALTA_DICIONARIO_BSD_${jogo.homeTeam}_${jogo.awayTeam}`.replace(/\s+/g, '_').toUpperCase();
+
+                  try {
+                    await salvarLogErroRedis(chaveRedis, {
+                      tipo: "FALHA_MAPEAMENTO_BSD",
+                      message: "Times não encontrados na API da BSD. Verificar necessidade de adicionar ao dicionario_times.json",
+                      homeTeamESPN: jogo.homeTeam,
+                      awayTeamESPN: jogo.awayTeam,
+                      dataDoJogo: jogo.kickoff,
+                      lote: numeroLote,
+                      sugestaoAcao: `Abra o dicionario_times.json e crie uma chave para '${jogo.homeTeam.toLowerCase()}' ou '${jogo.awayTeam.toLowerCase()}' com o nome exato que está na BSD.`
+                    });
+                  } catch (redisErr) {
+                    console.error(`Erro ao tentar salvar a falta de dicionário no Redis (Lote ${numeroLote}):`, redisErr);
+                  }
+                }
+                // ==============================================================================
+                // 👆 FIM DA LÓGICA DO REDIS 👆
+                // ==============================================================================
+
+
 
                 // Formatando os dados da BSD para texto para que o Gemini entenda facilmente
                 const blocoMatematico = dadosMatematicos
@@ -911,7 +933,7 @@ export default async function handler(req, res) {
               const promptPronto = montarPromptRAGLote(lote, dossieCompleto, date);
 
               // Chamando backup de outro modelo do gemini para analisar o lote inteiro
-              const resultadoIA = await callGeminiWithTavilyLote(promptPronto, lote);
+              const resultadoIA = await callGeminiWithTavilyLote(promptPronto, lote, numeroLote);
 
               if (resultadoIA && resultadoIA.sections) {
                 parsed = { sections: resultadoIA.sections };
