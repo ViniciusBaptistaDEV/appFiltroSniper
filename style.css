@@ -167,6 +167,87 @@ button:disabled {
     /* Ícone fica branco */
 }
 
+
+/* =========================================================
+   PAINEL DE ESTATÍSTICAS
+   ========================================================= */
+/* Container que centraliza o card na tela */
+.stats-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+    margin-bottom: 25px;
+    /* Animação suave para quando o card aparecer */
+    animation: fadeInStats 0.6s ease-out;
+}
+
+/* O card em si */
+.stats-card {
+    background: rgba(30, 41, 59, 0.8);
+    /* Fundo escuro levemente transparente */
+    border: 1px solid #22c55e;
+    /* Borda verde "Sniper" */
+    border-radius: 12px;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 8px 25px rgba(34, 197, 94, 0.15);
+    /* Brilho verde suave */
+}
+
+/* Organização dos textos (um embaixo do outro) */
+.stats-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* 🎯 ISSO centraliza o número e os textos lateralmente */
+    text-align: center;  /* Garante que o texto se comporte bem se quebrar linha */
+}
+
+/* Texto pequeno de cima: "VOLUME DE ANÁLISE" */
+.stats-label {
+    color: #94a3b8;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: bold;
+}
+
+/* O número grande: "15" */
+.stats-value {
+    color: #22c55e;
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+    font-family: 'monospace', sans-serif;
+}
+
+/* Texto de baixo: "partidas processadas hoje" */
+.stats-suffix {
+    color: #64748b;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* Classe utilitária para esconder/mostrar via JavaScript */
+.hidden {
+    display: none !important;
+}
+
+/* Animação de entrada */
+@keyframes fadeInStats {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+
 /* Loading */
 #loading {
     text-align: center;
@@ -649,6 +730,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
         font-size: 0.85rem;
         border: 1px solid #334155;
         background: transparent;
+    }
+
+    #stats-dashboard {
+        top: 20px;
+        margin: 40px auto 0;
     }
 
     /* Empurra o cabeçalho para baixo para fugir do botão */

@@ -96,8 +96,10 @@ document.getElementById('btn-login').addEventListener('click', async () => {
 });
 
 async function analisar() {
+
     const dateEl = document.getElementById("dateInput");
     const date = dateEl.value;
+
     if (!date) {
         alert("Selecione uma data!");
         return;
@@ -119,6 +121,8 @@ async function analisar() {
     resultado.innerHTML = "";
     if (progressText) progressText.textContent = "1%";
     btnText.textContent = "Analisando...";
+    const painelStats = document.getElementById('stats-dashboard');
+    if (painelStats) painelStats.classList.add('hidden');
 
     // Variáveis de controle do progresso suave
     let displayPercent = 0;
@@ -223,6 +227,20 @@ async function analisar() {
         // 🕒 DELAY ESTRATÉGICO
         // 🕒 AGUARDA 2 SEGUNDOS (Para o usuário ver o 100% e respirar)
         await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // 👇 ADICIONE ISSO AQUI: Mostra o Volume de Análise
+        if (data.totalJogos !== undefined) {
+            const contadorStats = document.getElementById('jogos-count');
+            if (contadorStats) {
+                contadorStats.innerText = data.totalJogos;
+            }
+            if (painelStats) {
+                // Adicionamos o cronômetro de 1 segundo (1000ms)
+                setTimeout(() => {
+                    painelStats.classList.remove('hidden');
+                }, 1200);
+            }
+        }
 
         // 🔥 ATUALIZA O CRONÔMETRO COM O TEMPO QUE VEIO DA IA
         atualizarDisplayCronometro(data.expiresAt);
@@ -712,9 +730,14 @@ async function verificarCacheRedis(dataSelecionada) {
         return;
     }
 
+    const painelStats = document.getElementById('stats-dashboard'); // 🎯 Captura o painel aqui
+
     container.style.display = 'block';
     display.innerHTML = "Sincronizando...";
     display.style.color = "#10b981";
+
+    if (painelStats) painelStats.classList.add('hidden');
+
     clearInterval(timerInterval);
 
     if (btnAnalisar) {
@@ -748,6 +771,23 @@ async function verificarCacheRedis(dataSelecionada) {
 
             atualizarDisplayCronometro(data.expiresAt);
 
+            // 👇 ADIÇÃO: Se o servidor mandou o total de jogos no cache, mostramos agora
+            if (data.totalJogos) {
+                const contadorStats = document.getElementById('jogos-count');
+                if (contadorStats) {
+                    contadorStats.innerText = data.totalJogos;
+
+                    if (painelStats) {
+
+                        // Adicionamos o cronômetro de 1 segundo (1000ms)
+                        setTimeout(() => {
+                            painelStats.classList.remove('hidden');
+                        }, 1200);
+
+                    }
+                }
+            }
+
             // 🔥 DESTRAVA o botão quando o servidor responder
             if (btnAnalisar) {
                 setTimeout(() => {
@@ -761,6 +801,11 @@ async function verificarCacheRedis(dataSelecionada) {
 
             display.innerHTML = "Nova Análise Liberada";
             display.style.color = "#10b981";
+
+            // 👇 ESCONDE O PAINEL DE ESTATÍSTICAS POIS NÃO HÁ ANÁLISE PRONTA 👇
+            if (painelStats) {
+                painelStats.classList.add('hidden');
+            }
 
             // 🔥 DESTRAVA o botão quando o servidor responder
             if (btnAnalisar) {

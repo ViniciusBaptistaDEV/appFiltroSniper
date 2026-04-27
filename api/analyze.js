@@ -358,7 +358,7 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray, numeroLote = "N/
 
   // 1. Configuração da Esteira de Modelos de Contingência
   const esteiraModelos = [
-    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 150000}, // 2,5 minutos pro Titular pensar
+    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 150000 }, // 2,5 minutos pro Titular pensar
     { nome: "RESERVA 1", modeloId: MODEL_TAVILY_MAIN_RESERVA_1, timeoutStr: 60000 }, // 60s pros mais rápidos
     { nome: "RESERVA 2", modeloId: MODEL_TAVILY_MAIN_RESERVA_2, timeoutStr: 60000 },
     { nome: "RESERVA 3", modeloId: MODEL_TAVILY_MAIN_RESERVA_3, timeoutStr: 60000 }
@@ -711,7 +711,7 @@ export default async function handler(req, res) {
       if (!REDIS_URL || !REDIS_TOKEN) return res.status(200).json({ expiresAt: null });
 
       // ALERTA: Aqui usamos a mesma chave exata do cache!
-      const cacheKey = `SNIPER_V12:${date}`;
+      const cacheKey = `SNIPER_ANALISE_PRONTA:${date}`;
 
       const resTtl = await fetch(`${REDIS_URL}/ttl/${cacheKey}`, {
         headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
@@ -721,7 +721,26 @@ export default async function handler(req, res) {
       // Se o result for maior que 0, são os segundos que faltam para o cache morrer
       if (dataTtl.result && dataTtl.result > 0) {
         const expiresAt = Date.now() + (dataTtl.result * 1000);
-        return res.status(200).json({ status: "cached", expiresAt });
+
+        // 👇 ADIÇÃO: Já que o cache existe, vamos pegar rápido o número de jogos para o painel verde
+        let totalJogosCache = null;
+        try {
+          const statsKey = `SNIPER_JOGOS_ANALISADOS:${date}`;
+          const resStats = await fetch(`${REDIS_URL}/get/${statsKey}`, {
+            headers: { Authorization: `Bearer ${REDIS_TOKEN}` }
+          });
+          const dataStats = await resStats.json();
+          if (dataStats.result) {
+            const statsObj = JSON.parse(dataStats.result);
+            totalJogosCache = statsObj.totalGeral;
+          }
+        } catch (e) {
+          console.error("⚠️ Aviso: Não foi possível buscar estatísticas no ping de cache.", e);
+        }
+
+        // 🔥 Agora enviamos o totalJogos junto com o expiresAt!
+        return res.status(200).json({ status: "cached", expiresAt, totalJogos: totalJogosCache });
+
       } else {
         return res.status(200).json({ status: "nocache", expiresAt: null });
       }
@@ -757,12 +776,14 @@ export default async function handler(req, res) {
       });
     }
 
+
+
     // console.log(`\n⚽ [ESPN] Grade carregada com sucesso: ${grade.length} jogos encontrados para a data ${date}.`);
 
     // ---------------------------------------------------------
     // ETAPA 2: Acionar o Motor de Inteligência Analítica em PARALELO
     // ---------------------------------------------------------
-    let analisePronta = await getCache(`SNIPER_V12:${date}`);
+    let analisePronta = await getCache(`SNIPER_ANALISE_PRONTA:${date}`);
 
     if (!analisePronta) {
 
@@ -795,6 +816,56 @@ export default async function handler(req, res) {
 
       const lotes = fatiarArray(grade, tamanhoLote);
       let lotesConcluidos = 0;
+
+
+
+
+      // ==============================================================================
+      // 👇 SALVAR AUDITORIA E QUANTIDADE DE JOGOS NO REDIS 👇
+      // ==============================================================================
+
+      const estruturaLotes = lotes.map((lote, i) => ({
+        numeroLote: i + 1,
+        quantidade: lote.length,
+        confrontos: lote.map(j => `${j.homeTeam} vs ${j.awayTeam}`)
+      }));
+
+      const dadosAuditoria = {
+        totalGeral: grade.length,
+        dataAnalise: date,
+        timestamp: new Date().toISOString(),
+        jogosNaGrade: grade.map(j => `${j.homeTeam} vs ${j.awayTeam}`),
+        divisaoLotes: estruturaLotes
+      };
+
+      const statsKey = `SNIPER_JOGOS_ANALISADOS:${date}`;
+
+      try {
+        await fetch(`${REDIS_URL}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${REDIS_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([
+            "SET",
+            statsKey,
+            JSON.stringify(dadosAuditoria),
+            "EX",
+            CACHE_TTL
+          ])
+        });
+        console.log(`📊 [AUDITORIA] Estrutura de ${lotes.length} lotes salva com sucesso no Redis.`);
+      } catch (err) {
+        console.error("⚠️ Falha ao salvar auditoria:", err.message);
+      }
+      // ==============================================================================
+      // 👆 FIM DA NOVA LÓGICA 👆
+      // ==============================================================================
+
+
+
+
 
       // console.log(`🚀 [SISTEMA] Iniciando fatiamento de ${grade.length} jogos em lotes de ${tamanhoLote} jogos cada...`);
 
@@ -1128,7 +1199,7 @@ export default async function handler(req, res) {
         expiresAt: tempoExpiracao // 🔥 A mágica começa aqui
       };
 
-      await setCache(`SNIPER_V12:${date}`, analisePronta); // Lembra de mudar a chave para V12 para testar!
+      await setCache(`SNIPER_ANALISE_PRONTA:${date}`, analisePronta); // Lembra de mudar a chave para V12 para testar!
       console.log(`\n✅ [SUCESSO] Grade completa analisada e salva no Redis.\n`);
     } else {
       console.log('\n=================================================');
@@ -1158,6 +1229,7 @@ export default async function handler(req, res) {
       generatedAt: new Date().toISOString(),
       expiresAt: analisePronta.expiresAt, // 🔥 Envia o tempo para o Front-end
       source: { grade: "ESPN", ai: `Motor IA: ${IA_PROVEDOR.toUpperCase()} + Lotes Turbo Paralelo` },
+      totalJogos: grade.length,
       sections: sectionsComOdds, // Devolvemos os cards já com as Odds Reais embutidas!
       resultado: analisePronta.resultado
     });
