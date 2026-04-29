@@ -70,17 +70,25 @@ async function calcularMetricasAvancadas(teamId) {
     };
 }
 
+
 export async function buscarDadosMatematicosBSD(game) {
+
     try {
         const homeTraduzido = DICIONARIO[game.homeTeam.toLowerCase()] || game.homeTeam;
         const awayTraduzido = DICIONARIO[game.awayTeam.toLowerCase()] || game.awayTeam;
-        const dateStr = game.kickoff.split('T')[0];
+
+        // Cria o objeto de data real a partir da string UTC da ESPN
+        const dataObj = new Date(game.kickoff);
+
+        // Converte a data para o fuso do Brasil e extrai no formato exato da BSD (YYYY-MM-DD)
+        // 'en-CA' é usado aqui porque é o padrão oficial para extrair datas com traços (YYYY-MM-DD)
+        const dateStr = dataObj.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
 
         // 🛡️ TRAVA 1 CORRIGIDA: Envia o nome INTEIRO codificado para a URL
-        let search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(homeTraduzido)}`);
+        let search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(homeTraduzido)}&tz=America/Sao_Paulo`);
 
         if (!search?.results || search.results.length === 0) {
-            search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(awayTraduzido)}`);
+            search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(awayTraduzido)}&tz=America/Sao_Paulo`);
         }
 
         if (!search?.results || search.results.length === 0) return null;
@@ -89,12 +97,15 @@ export async function buscarDadosMatematicosBSD(game) {
         const homeBuscado = homeTraduzido.toLowerCase();
         const awayBuscado = awayTraduzido.toLowerCase();
 
-        const bsdMatch = search.results.find(jogo =>
-            jogo.home_team_obj.name.toLowerCase() === homeBuscado ||
-            jogo.away_team_obj.name.toLowerCase() === awayBuscado ||
-            jogo.home_team_obj.name.toLowerCase().includes(homeBuscado) ||
-            jogo.away_team_obj.name.toLowerCase().includes(awayBuscado)
-        );
+        const bsdMatch = search.results.find(jogo => {
+            const hApi = jogo.home_team_obj.name.toLowerCase();
+            const aApi = jogo.away_team_obj.name.toLowerCase();
+
+            const mandanteBate = hApi.includes(homeBuscado) || homeBuscado.includes(hApi);
+            const visitanteBate = aApi.includes(awayBuscado) || awayBuscado.includes(aApi);
+
+            return mandanteBate && visitanteBate; // 🔥 Aqui é && (Ambos têm que ser verdadeiros)
+        });
 
         // Se não achou o jogo certo na lista, aborta
         if (!bsdMatch) return null;
@@ -102,17 +113,23 @@ export async function buscarDadosMatematicosBSD(game) {
         const eventId = bsdMatch.id;
         const homeId = bsdMatch.home_team_obj.id;
         const awayId = bsdMatch.away_team_obj.id;
+        const leagueId = bsdMatch.league.id; // 🔥 NOVO: Pegando o ID da Liga
 
         // ✅ CORREÇÃO 1: Nomes das variáveis ajustadas para metricsHome e metricsAway
-        const [detalhes, homeM, awayM, metricsHome, metricsAway] = await Promise.all([
+        const [detalhes, homeM, awayM, metricsHome, metricsAway, standingsData] = await Promise.all([
             fetchBSD(`/events/${eventId}/?full=true`),
             fetchBSD(`/managers/?team_id=${homeId}`),
             fetchBSD(`/managers/?team_id=${awayId}`),
             calcularMetricasAvancadas(homeId),
-            calcularMetricasAvancadas(awayId)
+            calcularMetricasAvancadas(awayId),
+            fetchBSD(`/leagues/${leagueId}/standings/`)
         ]);
 
         if (!detalhes) return null;
+
+        // 🔥 NOVO: Filtramos o array de standings para achar exatamente os dois times
+        const classifHome = standingsData?.standings?.find(t => t.team_id === homeId) || {};
+        const classifAway = standingsData?.standings?.find(t => t.team_id === awayId) || {};
 
         const h2h = detalhes.head_to_head || {};
         const limiteAno = new Date().getFullYear() - 2;
@@ -126,10 +143,32 @@ export async function buscarDadosMatematicosBSD(game) {
         return {
             id_evento: eventId,
             confronto: `${bsdMatch.home_team_obj.name} vs ${bsdMatch.away_team_obj.name}`,
-            liga: detalhes.league_obj?.name,
+            liga: detalhes.league?.name || "Competição Internacional ou Copa",
+
+            // 🔥 AJUSTE NA RODADA: Deixa claro que pode ser a rodada do campeonato ou da temporada
+            fase_ou_rodada: detalhes.round_number ? `Rodada/Semana ${detalhes.round_number}` : "Fase de Mata-Mata",
+
+            // 🔥 NOVO: Dados de Contexto (Árbitro e Desfalques)
+            contexto_do_jogo: {
+                arbitro: detalhes.referee ? detalhes.referee.name : "N/A",
+                desfalques_mandante: detalhes.unavailable_players?.home?.map(p => `${p.name} (${p.reason})`) || [],
+                desfalques_visitante: detalhes.unavailable_players?.away?.map(p => `${p.name} (${p.reason})`) || [],
+            },
 
             estatisticas_temporada: {
                 mandante: {
+
+                    // 🔥 NOVO: DADOS DA TABELA DE CLASSIFICAÇÃO
+                    base_dos_dados: `Tabela da ${standingsData?.league?.name || "Liga Nacional"}`,
+                    posicao_campeonato: classifHome.position || null,
+                    pontos_campeonato: classifHome.pts || null,
+                    forma_recente_campeonato: classifHome.form || null, // Retorna ex: "W W D L"
+                    saldo_gols_campeonato: classifHome.gd || null,
+
+                    // 🔥 NOVO: DADOS TÁTICOS
+                    formacao_preferida: detalhes.home_coach?.preferred_formation || null,
+                    estilo_de_jogo: detalhes.home_coach?.top_styles?.join(', ') || null,
+
                     // DADOS GERAIS DA TEMPORADA
                     media_gols_marcados_temporada: round2(detalhes.home_form?.avg_goals_scored),
                     media_gols_sofridos_temporada: round2(detalhes.home_form?.avg_goals_conceded),
@@ -152,7 +191,21 @@ export async function buscarDadosMatematicosBSD(game) {
                     xg_bola_parada_e_escanteios: metricsHome?.xg_set_piece_avg,
                     tamanho_amostra_jogos_recentes: metricsHome?.sample_size
                 },
+
                 visitante: {
+
+                    // 🔥 NOVO: DADOS DA TABELA DE CLASSIFICAÇÃO
+                    base_dos_dados: `Tabela da ${standingsData?.league?.name || "Liga Nacional"}`,
+                    posicao_campeonato: classifAway.position || null,
+                    pontos_campeonato: classifAway.pts || null,
+                    forma_recente_campeonato: classifAway.form || null,
+                    saldo_gols_campeonato: classifAway.gd || null,
+
+                    // 🔥 NOVO: DADOS TÁTICOS
+                    formacao_preferida: detalhes.away_coach?.preferred_formation || null,
+                    estilo_de_jogo: detalhes.away_coach?.top_styles?.join(', ') || null,
+
+                    // DADOS GERAIS DA TEMPORADA
                     media_gols_marcados_temporada: round2(detalhes.away_form?.avg_goals_scored),
                     media_gols_sofridos_temporada: round2(detalhes.away_form?.avg_goals_conceded),
                     media_xg_criado_temporada: round2(detalhes.away_form?.avg_xg),
@@ -161,12 +214,14 @@ export async function buscarDadosMatematicosBSD(game) {
                     media_chutes_no_gol_por_jogo: round2(detalhes.away_form?.avg_shots_on_target),
                     xg_por_chute_eficiencia: calcXgPerShot(detalhes.away_form?.avg_xg, detalhes.away_form?.avg_shots),
 
+                    // DADOS ESPECÍFICOS DO TREINADOR ATUAL (Crucial para a IA entender o peso)
                     btts_pct_com_treinador_atual: round2(awayM?.results?.[0]?.btts_pct),
                     clean_sheet_pct_com_treinador_atual: round2(awayM?.results?.[0]?.clean_sheet_pct),
                     over_25_pct_com_treinador_atual: round2(awayM?.results?.[0]?.over_25_pct),
                     media_posse_bola_treinador_atual: round2(awayM?.results?.[0]?.avg_possession),
                     media_escanteios_por_jogo: round2(awayM?.results?.[0]?.avg_corners),
 
+                    // MÉTRICAS AVANÇADAS RECENTES (Últimos 5 jogos)
                     xg_medio_ultimos_5_jogos: metricsAway?.xg_recent_avg,
                     psxg_qualidade_chutes_ultimos_5_jogos: metricsAway?.psxg_recent_total,
                     xg_bola_parada_e_escanteios: metricsAway?.xg_set_piece_avg,

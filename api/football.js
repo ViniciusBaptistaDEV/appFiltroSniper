@@ -118,14 +118,24 @@ export async function buscarJogos(date, options = {}) {
 
     // 1. FILTRO DO RELÓGIO: Remove jogos que já começaram ou terminaram
     const agora = Date.now();
+
+    const TOLERANCIA_MS = 15 * 60 * 1000; // 15 minutos em milissegundos (900.000 ms)
+
     const jogosFuturos = simplificados.filter(jogo => {
+
         const horarioJogo = new Date(jogo.kickoff).getTime();
-        return horarioJogo > agora; // Só mantém na lista se o jogo ainda for acontecer
+
+        // 🔥 A MUDANÇA ESTÁ AQUI: Soma a tolerância ao horário do jogo antes de comparar
+        return (horarioJogo + TOLERANCIA_MS) > agora; // Só mantém na lista se o jogo ainda for acontecer ou estiver dentro da tolerancia
+
     });
 
     const jogosPassados = simplificados.length - jogosFuturos.length;
+
     if (jogosPassados > 0) {
-        console.log(`\n⏰ [SISTEMA] Descartando ${jogosPassados} ${jogosPassados > 1 ? "jogos" : "jogo"} que já começaram/terminaram.`);
+
+        console.log(`\n⏰ [SISTEMA] Descartando ${jogosPassados} ${jogosPassados > 1 ? "jogos" : "jogo"} que já começaram há mais de 15 minutos ou terminaram.`);
+
     }
 
     // Atualiza a lista apenas com os jogos válidos

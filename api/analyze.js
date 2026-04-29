@@ -135,7 +135,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
   const body = {
 
     query: queryTexto,
-    search_depth: "basic",
+    search_depth: "advanced",
     include_raw_content: true,
     max_results: 4,
     days: diasBusca,
@@ -249,56 +249,42 @@ async function buscarDadosCompletos(jogoObj) {
 
 
   // 1. Definição das variáveis (agora apenas duas)
-  let queryNoticias, queryPerformance;
+  let queryNoticias;
 
   // 2. Lógica de Idioma + Temporada Exata nas Buscas
   if (liga.includes("brazil") || liga.includes("brasileiro") || liga.includes("Brazilian")) {
 
-    // QUERY 1: Fator Humano e Disponibilidade
-    queryNoticias = `Desfalques, lesões, suspensões, provável escalação, maratona de jogos, rodízio ${jogoNome} ${dataBR} GE Globo Esporte UOL Gazeta Esportiva`;
-
-    // QUERY 2: DNA do Jogo (Números + Tática)
-    queryPerformance = `Estatísticas xG (Expected Goals), estatísticas últimos 5 jogos, média de escanteios, análise pré-jogo, chances de gol,análise tática, cruzamentos, bloco baixo contra-ataque, ritmo de jogo ${jogoNome} ${temporadaSulAmericana} Sofascore Flashscore FBref Footure Gato Mestre`;
+    // QUERY ÚNICA: Fator Humano, Disponibilidade e Clima de Vestiário
+    queryNoticias = `Desfalques, lesões, provável escalação, time reserva, suspensões, técnico vai poupar, maratona de jogos, rodízio, coletiva de imprensa, crise, foco em outra competição, ${jogoNome} ${dataBR} Globo Esporte UOL Gazeta Esportiva Gato Mestre`;
 
   } else if (liga.includes("libertadores") || liga.includes("sudamericana") || liga.includes("sulamericana")) {
 
-    // QUERY 1: Fator Humano e Disponibilidade
-    queryNoticias = `Bajas, lesionados, suspendidos, alineación probable, descanso y rotación ${jogoNome} ${dataBR} TyC Sports Olé Promiedos`;
-
-    // QUERY 2: DNA do Jogo (Números + Tática)
-    queryPerformance = `Estadísticas, promedios tiros de esquina, goles esperados xG, análisis táctico, ventaja ida, clima, altura, estilo de juego ${jogoNome} ${temporadaSulAmericana} tiros de esquina xG promedios balón parado Promiedos Sofascore Footure Flashscore`;
+    queryNoticias = `Bajas, lesionados, suspendidos, alineación probable, equipo alternativo, descanso y rotación, conferencia de prensa, crisis, ${jogoNome} ${dataBR} TyC Sports Olé Promiedos ESPN Gato Mestre`;
 
   } else {
 
-    // QUERY 1: Fator Humano e Disponibilidade
-    queryNoticias = `Match preview, team news, injuries, predicted lineup, fixture congestion, rotated squad ${jogoNome} ${dataBR} Goal.com WhoScored Sports Mole`;
+    queryNoticias = `Match preview, team news, injuries, predicted lineup, rotated squad, resting players, fixture congestion, press conference, manager quotes, ${jogoNome} ${dataBR} Goal.com WhoScored Sport Sky Sports ESPN Gato Mestre`;
 
-    // QUERY 2: DNA do Jogo (Números + Tática)
-    queryPerformance = `Expected goals xG, xG analysis, average corners, tactical preview, match preview, match stats last 5 games, high press, aerial duels, game management ${jogoNome} ${temporadaEuropa} low intensity post-shot xG Squawka The Analyst Opta Whoscored`;
   }
 
 
 
   try {
 
-    // 🔥 Dispara as DUAS buscas para o Tavily ao mesmo tempo
-    const [resNoticias, resPerf] = await Promise.all([
-      fetchTavily(queryNoticias, 2, "news"),
-      fetchTavily(queryPerformance, 5, "general")
-    ]);
+    // 🔥 Dispara a busca ÚNICA para o Tavily
+    const resNoticias = await fetchTavily(queryNoticias, 2, "news");
 
     // 🔥 DETECTOR DE LIMITE / ERROS DO TAVILY
-    if (!resNoticias.ok || !resPerf.ok) {
-      console.error(`🚨 [TAVILY ALERTA] API bloqueou a busca! Status: Notícias(${resNoticias.status}), Estatísticas(${resPerf.status}).`);
+    if (!resNoticias.ok) {
+      console.error(`🚨 [TAVILY ALERTA] API bloqueou a busca! Status: Contexto(${resNoticias.status}).`);
 
       await salvarLogErroRedis(`TAVILY_SCRAPE_FAIL:${jogoNome}`, {
         message: "A API do Tavily recusou a conexão ou retornou erro.",
         statusNoticias: resNoticias.status,
-        statusPerformance: resPerf.status
       });
 
 
-      if (resNoticias.status === 429 || resPerf.status === 429) {
+      if (resNoticias.status === 429) {
         return "Indisponível - Limite de requisições Tavily atingido. Verifique o painel.";
       }
 
@@ -326,17 +312,13 @@ async function buscarDadosCompletos(jogoObj) {
     };
 
     // 2. Montagem do Bloco Estruturado
-    const secaoNoticias = formatarFontes(resNoticias, "NOTÍCIAS/DESFALQUES");
-    const secaoPerformance = formatarFontes(resPerf, "PERFORMANCE/ESTATÍSTICAS");
+    const secaoNoticias = formatarFontes(resNoticias, "NOTÍCIAS/CONTEXTO/DESFALQUES");
 
     return `
 ### [INFORMAÇÕES DA WEB - TAVILY]
 
---- PARTE 1: NOTÍCIAS E DISPONIBILIDADE ---
+--- CONTEXTO DO JOGO, NOTÍCIAS E FATOR HUMANO ---
 ${secaoNoticias}
-
---- PARTE 2: PERFORMANCE E ANÁLISE TÁTICA ---
-${secaoPerformance}
 
 `;
 
@@ -358,11 +340,14 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray, numeroLote = "N/
 
   // 1. Configuração da Esteira de Modelos de Contingência
   const esteiraModelos = [
-    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 150000 }, // 2,5 minutos pro Titular pensar
+    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 100000 }, // 1,4 minutos pro Titular pensar
     { nome: "RESERVA 1", modeloId: MODEL_TAVILY_MAIN_RESERVA_1, timeoutStr: 60000 }, // 60s pros mais rápidos
-    { nome: "RESERVA 2", modeloId: MODEL_TAVILY_MAIN_RESERVA_2, timeoutStr: 60000 },
-    { nome: "RESERVA 3", modeloId: MODEL_TAVILY_MAIN_RESERVA_3, timeoutStr: 60000 }
+    { nome: "RESERVA 2", modeloId: MODEL_TAVILY_MAIN_RESERVA_2, timeoutStr: 30000 }, // 30s pros mais rápidos
+    { nome: "RESERVA 3", modeloId: MODEL_TAVILY_MAIN_RESERVA_3, timeoutStr: 30000 } // 30s pros mais rápidos
   ];
+
+  // Função auxiliar de pausa
+  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   // 2. Loop de Tentativas (Processa na ordem até obter sucesso)
   for (let i = 0; i < esteiraModelos.length; i++) {
@@ -416,6 +401,8 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray, numeroLote = "N/
         : err.message;
 
       console.error(`\n❌ [SISTEMA - LOTE ${numeroLote}] Tentativa ${i + 1} falhou (Gemini ${nome} - ${modeloId}):\n`, err.message);
+
+      await sleep(3000); // 🔥 ADICIONE ISSO AQUI (Delay de 3 segundos)
 
       // 🕵️‍♂️ Salva o erro exato desta IA específica no Redis Upstash
       await salvarLogErroRedis(`ERRO_API_GEMINI_${nome.replace(' ', '_')}_LOTE_${numeroLote}`, {
@@ -519,10 +506,21 @@ async function salvarLogErroRedis(contexto, erroDetalhe) {
     const textoMensagem = erroDetalhe?.message || String(erroDetalhe);
     const textoStack = erroDetalhe?.stack || "Sem detalhes adicionais";
 
+
+    // Pega tudo que você passou de extra no objeto (lote, time, sugestao) e guarda
+    let detalhesExtras = {};
+    if (typeof erroDetalhe === 'object' && erroDetalhe !== null && !(erroDetalhe instanceof Error)) {
+        // Separa o message e o stack, e guarda o resto em 'detalhesExtras'
+        const { message, stack, ...resto } = erroDetalhe;
+        detalhesExtras = resto;
+    }
+
     // 2. O conteúdo que você vai ler depois
     const payloadLog = {
       dataErro: dataFormatada,
       origem: contexto, // Diz se foi o Gemini, a ESPN, as Odds ou um Crash Global
+      ...detalhesExtras, // 🎯 INJETA TUDO AQUI (Campeonato, times, sugestão, lote...)
+
       // 🔥 MÁGICA: Corta o texto onde tem '\n' e transforma em uma lista organizada
       mensagem: textoMensagem.split('\n').map(linha => linha.trim()).filter(Boolean),
       stack: textoStack.split('\n').map(linha => linha.trim()).filter(Boolean)
@@ -964,6 +962,7 @@ export default async function handler(req, res) {
                       message: "Times não encontrados na API da BSD. Verificar necessidade de adicionar ao dicionario_times.json",
                       homeTeamESPN: jogo.homeTeam,
                       awayTeamESPN: jogo.awayTeam,
+                      campeonato: jogo.league, // 🔥 NOVO: Nome do Campeonato adicionado aqui!
                       dataDoJogo: jogo.kickoff,
                       lote: numeroLote,
                       sugestaoAcao: `Abra o dicionario_times.json e crie uma chave para '${jogo.homeTeam.toLowerCase()}' ou '${jogo.awayTeam.toLowerCase()}' com o nome exato que está na BSD.`

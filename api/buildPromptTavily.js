@@ -479,7 +479,7 @@ Exemplo CORRETO (Obrigatório): ...justificativa tática. | [CONFIDENCA] 85%
 4. Use sinônimos se precisar se referir a elas (ex: em vez de [CONTEXTO], escreva 'cenário').
 
 🚨 REGRA DE ESCRITA PARA O CAMPO [Contexto]:
-É TERMINANTEMENTE PROIBIDO justificar a aposta usando apenas números. O campo "Contexto" DEVE obrigatoriamente conectar a matemática (Fonte A) com o Fator Humano (Fonte B ou C). Você deve citar o nome dos times, estilo de jogo, desfalques importantes, motivação ou fase atual para explicar o porquê os números estão daquele jeito.
+É TERMINANTEMENTE PROIBIDO justificar a aposta usando apenas números. O campo "Contexto" DEVE obrigatoriamente conectar a matemática (Fonte A) com o Fator Humano (Fonte B). Você deve citar o nome dos times, estilo de jogo, desfalques importantes, motivação ou fase atual para explicar o porquê os números estão daquele jeito.
 
 SE VOCÊ PRODUZIR QUALQUER TAG DENTRO DO TEXTO (especialmente dentro da justificativa tática) OU ESQUECER A BARRA ' | ', O SISTEMA SERÁ QUEBRADO. PORTANTO, SIGA À RISCA ESTAS REGRAS.
 
