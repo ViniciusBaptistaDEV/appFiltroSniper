@@ -151,8 +151,10 @@ export async function buscarDadosMatematicosBSD(game) {
             // 🔥 NOVO: Dados de Contexto (Árbitro e Desfalques)
             contexto_do_jogo: {
                 arbitro: detalhes.referee ? detalhes.referee.name : "N/A",
-                desfalques_mandante: detalhes.unavailable_players?.home?.map(p => `${p.name} (${p.reason})`) || [],
-                desfalques_visitante: detalhes.unavailable_players?.away?.map(p => `${p.name} (${p.reason})`) || [],
+
+                // Os desfalques estão vindo com jogadores que estão relacionados para a partida
+                // desfalques_mandante: detalhes.unavailable_players?.home?.map(p => `${p.name} (${p.reason})`) || [],
+                // desfalques_visitante: detalhes.unavailable_players?.away?.map(p => `${p.name} (${p.reason})`) || [],
             },
 
             estatisticas_temporada: {
