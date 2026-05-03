@@ -9,6 +9,20 @@ const BASE_URL = 'https://sports.bzzoiro.com/api';
 
 const round2 = (num) => (typeof num === 'number' && !isNaN(num)) ? parseFloat(num.toFixed(2)) : num;
 
+const traduzirForma = (forma) => {
+    if (!forma) return null;
+    
+    const traduzido = forma.split('').map(char => {
+        if (char === 'W') return 'Vitória'; 
+        if (char === 'D') return 'Empate';  
+        if (char === 'L') return 'Derrota'; 
+        return char;
+    }).join(' - ');
+    
+    // 🔥 PULO DO GATO: Explicando a direção do tempo para a IA
+    return `(Mais recente) ${traduzido} (Mais antigo)`;
+};
+
 const getDicionario = () => {
     try {
         const filePath = path.join(process.cwd(), 'api', 'dicionario_times.json');
@@ -43,7 +57,7 @@ async function calcularMetricasAvancadas(teamId) {
     if (!history || !history.results || history.results.length === 0) return null;
 
     const ultimos5 = history.results.slice(0, 5);
-    let somaXgRecente = 0, somaPSxG = 0, somaXgBolaParada = 0, totalJogosValidos = 0;
+    let somaXgRecente = 0, somaPSxG = 0, somaXgBolaParada = 0, somaEscanteios = 0, totalJogosValidos = 0;
 
     for (const jogo of ultimos5) {
         const detalhes = await fetchBSD(`/events/${jogo.id}/?full=true`);
@@ -52,20 +66,25 @@ async function calcularMetricasAvancadas(teamId) {
         const isHome = detalhes.home_team_obj.id === teamId;
         somaXgRecente += (isHome ? detalhes.actual_home_xg : detalhes.actual_away_xg) || 0;
 
+        let escanteiosDesteJogo = 0;
+
         if (detalhes.shotmap) {
             detalhes.shotmap.filter(shot => shot.home === isHome).forEach(shot => {
                 if (shot.xgot) somaPSxG += shot.xgot;
                 if (shot.sit === 'corner' || shot.sit === 'free-kick') somaXgBolaParada += (shot.xg || 0);
+                if (shot.sit === 'corner') escanteiosDesteJogo++;
             });
         }
+        somaEscanteios += escanteiosDesteJogo;
         totalJogosValidos++;
     }
 
     const div = totalJogosValidos || 1;
     return {
         xg_recent_avg: round2(somaXgRecente / div),
-        psxg_recent_total: round2(somaPSxG),
+        psxg_recent_avg: round2(somaPSxG / div),
         xg_set_piece_avg: round2(somaXgBolaParada / div),
+        media_escanteios_recentes: round2(somaEscanteios / div), // Nova métrica salva aqui
         sample_size: totalJogosValidos
     };
 }
@@ -116,16 +135,31 @@ export async function buscarDadosMatematicosBSD(game) {
         const leagueId = bsdMatch.league.id; // 🔥 NOVO: Pegando o ID da Liga
 
         // ✅ CORREÇÃO 1: Nomes das variáveis ajustadas para metricsHome e metricsAway
-        const [detalhes, homeM, awayM, metricsHome, metricsAway, standingsData] = await Promise.all([
+        const [detalhes, homeM, awayM, metricsHome, metricsAway, standingsData, contextoV2] = await Promise.all([
             fetchBSD(`/events/${eventId}/?full=true`),
             fetchBSD(`/managers/?team_id=${homeId}`),
             fetchBSD(`/managers/?team_id=${awayId}`),
             calcularMetricasAvancadas(homeId),
             calcularMetricasAvancadas(awayId),
-            fetchBSD(`/leagues/${leagueId}/standings/`)
+            fetchBSD(`/leagues/${leagueId}/standings/`),
+            fetchBSD(`/v2/events/${eventId}/`) // 🔥 NOVO: V2 (Apenas para contexto externo)
         ]);
 
         if (!detalhes) return null;
+
+        // 🔥 NOVO: SEGUNDO MOTOR (V2) - Buscando o Contexto Frio e Preciso
+        const [eventoV2, oddsV2, metadataV2, lineupsV2] = await Promise.all([
+            fetchBSD(`/v2/events/${eventId}/`),
+            fetchBSD(`/v2/events/${eventId}/odds/`),
+            fetchBSD(`/v2/events/${eventId}/metadata/`),
+            fetchBSD(`/v2/events/${eventId}/lineups/`)
+        ]);
+
+        // 🔥 NOVO: Buscando dados matemáticos do Árbitro se o ID dele existir
+        let arbitroV2 = null;
+        if (eventoV2 && eventoV2.referee_id) {
+            arbitroV2 = await fetchBSD(`/v2/referees/${eventoV2.referee_id}/`);
+        }
 
         // 🔥 NOVO: Filtramos o array de standings para achar exatamente os dois times
         const classifHome = standingsData?.standings?.find(t => t.team_id === homeId) || {};
@@ -150,7 +184,39 @@ export async function buscarDadosMatematicosBSD(game) {
 
             // 🔥 NOVO: Dados de Contexto (Árbitro e Desfalques)
             contexto_do_jogo: {
-                arbitro: detalhes.referee ? detalhes.referee.name : "N/A",
+                // Fatores de Jogo
+                classico_local_derby: eventoV2?.is_local_derby || false,
+                campo_neutro: eventoV2?.is_neutral_ground || false,
+                distancia_viagem_visitante_km: eventoV2?.travel_distance_km || 0,
+                clima_partida: eventoV2?.weather?.description || "Desconhecido",
+                condicao_gramado_nivel: eventoV2?.pitch_condition || "Desconhecido", // 1 (Ótimo) a 5 (Péssimo)
+
+                // Árbitro Matemático
+                arbitro: {
+                    nome: arbitroV2?.name || (detalhes.referee ? detalhes.referee.name : "N/A"),
+                    media_cartoes_amarelos: arbitroV2?.avg_yellow_per_match ?? "Sem dados",
+                    media_cartoes_vermelhos: arbitroV2?.avg_red_per_match ?? "Sem dados",
+                    media_faltas_marcadas: arbitroV2?.avg_fouls_per_match ?? "Sem dados",
+                },
+
+                // Mercado de Apostas (Consenso)
+                odds_consenso: {
+                    vitoria_mandante: oddsV2?.odds?.home_win || "Desconhecido",
+                    empate: oddsV2?.odds?.draw || "Desconhecido",
+                    vitoria_visitante: oddsV2?.odds?.away_win || "Desconhecido",
+                    over_25_gols: oddsV2?.odds?.over_25_goals || "Desconhecido",
+                    under_25_gols: oddsV2?.odds?.under_25_goals || "Desconhecido",
+                    ambas_marcam_sim: oddsV2?.odds?.btts_yes || "Desconhecido",
+                },
+
+                // Desfalques Reais
+                desfalques_confirmados: {
+                    mandante: lineupsV2?.unavailable_players?.home?.map(p => `${p.name} (${p.reason})`) || [],
+                    visitante: lineupsV2?.unavailable_players?.away?.map(p => `${p.name} (${p.reason})`) || []
+                },
+
+                // Fatos Relevantes (Apenas as sentenças matemáticas)
+                fatos_historicos_pre_jogo: metadataV2?.trivia?.map(t => t.sentence) || []
 
                 // Os desfalques estão vindo com jogadores que estão relacionados para a partida
                 // desfalques_mandante: detalhes.unavailable_players?.home?.map(p => `${p.name} (${p.reason})`) || [],
@@ -162,14 +228,13 @@ export async function buscarDadosMatematicosBSD(game) {
 
                     // 🔥 NOVO: DADOS DA TABELA DE CLASSIFICAÇÃO
                     base_dos_dados: `Tabela da ${standingsData?.league?.name || "Liga Nacional"}`,
-                    posicao_campeonato: classifHome.position || null,
-                    pontos_campeonato: classifHome.pts || null,
-                    forma_recente_campeonato: classifHome.form || null, // Retorna ex: "W W D L"
-                    saldo_gols_campeonato: classifHome.gd || null,
+                    posicao_campeonato: classifHome.position || "Desconhecido",
+                    pontos_campeonato: classifHome.pts || "Desconhecido",
+                    forma_recente_campeonato: traduzirForma(classifHome.form) || "Desconhecido", // Retorna ex: "W W D L"
+                    saldo_gols_campeonato: classifHome.gd || "Desconhecido",
 
                     // 🔥 NOVO: DADOS TÁTICOS
-                    formacao_preferida: detalhes.home_coach?.preferred_formation || null,
-                    estilo_de_jogo: detalhes.home_coach?.top_styles?.join(', ') || null,
+                    formacao_preferida: detalhes.home_coach?.preferred_formation || "Desconhecido",
 
                     // DADOS GERAIS DA TEMPORADA
                     media_gols_marcados_temporada: round2(detalhes.home_form?.avg_goals_scored),
@@ -181,16 +246,17 @@ export async function buscarDadosMatematicosBSD(game) {
                     xg_por_chute_eficiencia: calcXgPerShot(detalhes.home_form?.avg_xg, detalhes.home_form?.avg_shots),
 
                     // DADOS ESPECÍFICOS DO TREINADOR ATUAL (Crucial para a IA entender o peso)
-                    btts_pct_com_treinador_atual: round2(homeM?.results?.[0]?.btts_pct),
-                    clean_sheet_pct_com_treinador_atual: round2(homeM?.results?.[0]?.clean_sheet_pct),
-                    over_25_pct_com_treinador_atual: round2(homeM?.results?.[0]?.over_25_pct),
-                    media_posse_bola_treinador_atual: round2(homeM?.results?.[0]?.avg_possession),
-                    media_escanteios_por_jogo: round2(homeM?.results?.[0]?.avg_corners),
+                    btts_pct_com_treinador_atual: `${round2(homeM?.results?.[0]?.btts_pct)}%`,
+                    clean_sheet_pct_com_treinador_atual: `${round2(homeM?.results?.[0]?.clean_sheet_pct)}%`,
+                    over_25_pct_com_treinador_atual: `${round2(homeM?.results?.[0]?.over_25_pct)}%`,
+                    media_posse_bola_treinador_atual: `${round2(homeM?.results?.[0]?.avg_possession)}%`,
+                    // A linha falsa de escanteios do treinador foi removida daqui
 
                     // MÉTRICAS AVANÇADAS RECENTES (Últimos 5 jogos)
                     xg_medio_ultimos_5_jogos: metricsHome?.xg_recent_avg,
-                    psxg_qualidade_chutes_ultimos_5_jogos: metricsHome?.psxg_recent_total,
+                    psxg_qualidade_chutes_medio_ultimos_5_jogos: metricsHome?.psxg_recent_avg,
                     xg_bola_parada_e_escanteios: metricsHome?.xg_set_piece_avg,
+                    media_escanteios_perigosos_recentes: metricsHome?.media_escanteios_recentes, // Dados reais da equipe inseridos aqui
                     tamanho_amostra_jogos_recentes: metricsHome?.sample_size
                 },
 
@@ -198,14 +264,13 @@ export async function buscarDadosMatematicosBSD(game) {
 
                     // 🔥 NOVO: DADOS DA TABELA DE CLASSIFICAÇÃO
                     base_dos_dados: `Tabela da ${standingsData?.league?.name || "Liga Nacional"}`,
-                    posicao_campeonato: classifAway.position || null,
-                    pontos_campeonato: classifAway.pts || null,
-                    forma_recente_campeonato: classifAway.form || null,
-                    saldo_gols_campeonato: classifAway.gd || null,
+                    posicao_campeonato: classifAway.position || "Desconhecido",
+                    pontos_campeonato: classifAway.pts || "Desconhecido",
+                    forma_recente_campeonato: traduzirForma(classifAway.form) || "Desconhecido",
+                    saldo_gols_campeonato: classifAway.gd || "Desconhecido",
 
                     // 🔥 NOVO: DADOS TÁTICOS
-                    formacao_preferida: detalhes.away_coach?.preferred_formation || null,
-                    estilo_de_jogo: detalhes.away_coach?.top_styles?.join(', ') || null,
+                    formacao_preferida: detalhes.away_coach?.preferred_formation || "Desconhecido",
 
                     // DADOS GERAIS DA TEMPORADA
                     media_gols_marcados_temporada: round2(detalhes.away_form?.avg_goals_scored),
@@ -217,25 +282,25 @@ export async function buscarDadosMatematicosBSD(game) {
                     xg_por_chute_eficiencia: calcXgPerShot(detalhes.away_form?.avg_xg, detalhes.away_form?.avg_shots),
 
                     // DADOS ESPECÍFICOS DO TREINADOR ATUAL (Crucial para a IA entender o peso)
-                    btts_pct_com_treinador_atual: round2(awayM?.results?.[0]?.btts_pct),
-                    clean_sheet_pct_com_treinador_atual: round2(awayM?.results?.[0]?.clean_sheet_pct),
-                    over_25_pct_com_treinador_atual: round2(awayM?.results?.[0]?.over_25_pct),
-                    media_posse_bola_treinador_atual: round2(awayM?.results?.[0]?.avg_possession),
-                    media_escanteios_por_jogo: round2(awayM?.results?.[0]?.avg_corners),
+                    btts_pct_com_treinador_atual: `${round2(awayM?.results?.[0]?.btts_pct)}%`,
+                    clean_sheet_pct_com_treinador_atual: `${round2(awayM?.results?.[0]?.clean_sheet_pct)}%`,
+                    over_25_pct_com_treinador_atual: `${round2(awayM?.results?.[0]?.over_25_pct)}%`,
+                    media_posse_bola_treinador_atual: `${round2(awayM?.results?.[0]?.avg_possession)}%`,
 
                     // MÉTRICAS AVANÇADAS RECENTES (Últimos 5 jogos)
                     xg_medio_ultimos_5_jogos: metricsAway?.xg_recent_avg,
-                    psxg_qualidade_chutes_ultimos_5_jogos: metricsAway?.psxg_recent_total,
+                    psxg_qualidade_chutes_medio_ultimos_5_jogos: metricsAway?.psxg_recent_avg,
                     xg_bola_parada_e_escanteios: metricsAway?.xg_set_piece_avg,
+                    media_escanteios_perigosos_recentes: metricsAway?.media_escanteios_recentes, // Dados reais da equipe inseridos aqui
                     tamanho_amostra_jogos_recentes: metricsAway?.sample_size
                 }
             },
 
             analise_h2h: {
                 media_gols_confronto_direto: round2(h2h.avg_total_goals),
-                vitorias_mandante_pct_historico: round2(h2h.home_win_rate),
-                vitorias_visitante_pct_historico: round2(h2h.away_win_rate),
-                empates_pct_historico: round2(h2h.draw_rate),
+                vitorias_mandante_pct_historico: `${round2((h2h.home_win_rate || 0) * 100)}%`,
+                vitorias_visitante_pct_historico: `${round2((h2h.away_win_rate || 0) * 100)}%`,
+                empates_pct_historico: `${round2((h2h.draw_rate || 0) * 100)}%`, // Adicionei o * 100 aqui que faltava
                 total_jogos_historico_analisados: h2h.total_matches,
                 ultimos_jogos_diretos_2_anos: recentMatches
             }
