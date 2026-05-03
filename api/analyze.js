@@ -340,9 +340,9 @@ async function callGeminiWithTavilyLote(promptTexto, loteArray, numeroLote = "N/
 
   // 1. Configuração da Esteira de Modelos de Contingência
   const esteiraModelos = [
-    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 100000 }, // 1,4 minutos pro Titular pensar
-    { nome: "RESERVA 1", modeloId: MODEL_TAVILY_MAIN_RESERVA_1, timeoutStr: 60000 }, // 60s pros mais rápidos
-    { nome: "RESERVA 2", modeloId: MODEL_TAVILY_MAIN_RESERVA_2, timeoutStr: 30000 }, // 30s pros mais rápidos
+    { nome: "TITULAR", modeloId: MODEL_TAVILY_MAIN_TITULAR, timeoutStr: 120000 }, // 2 minutos pro Titular pensar
+    { nome: "RESERVA 1", modeloId: MODEL_TAVILY_MAIN_RESERVA_1, timeoutStr: 70000 }, // 1,3 minutos pros mais rápidos
+    { nome: "RESERVA 2", modeloId: MODEL_TAVILY_MAIN_RESERVA_2, timeoutStr: 60000 }, // 60s pros mais rápidos
     { nome: "RESERVA 3", modeloId: MODEL_TAVILY_MAIN_RESERVA_3, timeoutStr: 30000 } // 30s pros mais rápidos
   ];
 
