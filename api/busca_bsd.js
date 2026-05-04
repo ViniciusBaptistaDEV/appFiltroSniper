@@ -11,16 +11,16 @@ const round2 = (num) => (typeof num === 'number' && !isNaN(num)) ? parseFloat(nu
 
 const traduzirForma = (forma) => {
     if (!forma) return null;
-    
-    const traduzido = forma.split('').map(char => {
-        if (char === 'W') return 'Vitória'; 
-        if (char === 'D') return 'Empate';  
-        if (char === 'L') return 'Derrota'; 
+
+    const traduzido = forma.split('').reverse().map(char => {
+        if (char === 'W') return 'Vitória';
+        if (char === 'D') return 'Empate';
+        if (char === 'L') return 'Derrota';
         return char;
     }).join(' - ');
-    
+
     // 🔥 PULO DO GATO: Explicando a direção do tempo para a IA
-    return `(Mais recente) ${traduzido} (Mais antigo)`;
+    return `(Mais antigo) ${traduzido} (Mais recente)`;
 };
 
 const getDicionario = () => {
@@ -49,19 +49,31 @@ async function fetchBSD(endpoint) {
     }
 }
 
+
 async function calcularMetricasAvancadas(teamId) {
+
     const hoje = new Date();
     const sessentaDiasAtras = new Date(hoje.setDate(hoje.getDate() - 60)).toISOString().split('T')[0];
 
     const history = await fetchBSD(`/events/?team_id=${teamId}&status=finished&date_from=${sessentaDiasAtras}`);
     if (!history || !history.results || history.results.length === 0) return null;
 
-    const ultimos5 = history.results.slice(0, 5);
+    // Assim pegamos os 5 mais recentes!
+    const ultimos5 = history.results.reverse().slice(0, 5);
+
     let somaXgRecente = 0, somaPSxG = 0, somaXgBolaParada = 0, somaEscanteios = 0, totalJogosValidos = 0;
+
+    // 🔥 ADICIONE ISTO 1: A variável para guardar os resultados
+    const lista_jogos_recentes = [];
 
     for (const jogo of ultimos5) {
         const detalhes = await fetchBSD(`/events/${jogo.id}/?full=true`);
         if (!detalhes) continue;
+
+        lista_jogos_recentes.unshift({ // 🔥 Troque push por unshift
+            torneio: jogo.league?.name || "Desconhecido",
+            placar: `${jogo.home_team_obj?.name || "Casa"} ${jogo.home_score ?? '-'} x ${jogo.away_score ?? '-'} ${jogo.away_team_obj?.name || "Fora"}`
+        });
 
         const isHome = detalhes.home_team_obj.id === teamId;
         somaXgRecente += (isHome ? detalhes.actual_home_xg : detalhes.actual_away_xg) || 0;
@@ -85,7 +97,8 @@ async function calcularMetricasAvancadas(teamId) {
         psxg_recent_avg: round2(somaPSxG / div),
         xg_set_piece_avg: round2(somaXgBolaParada / div),
         media_escanteios_recentes: round2(somaEscanteios / div), // Nova métrica salva aqui
-        sample_size: totalJogosValidos
+        sample_size: totalJogosValidos,
+        historico_resultados_geral: lista_jogos_recentes
     };
 }
 
@@ -257,7 +270,8 @@ export async function buscarDadosMatematicosBSD(game) {
                     psxg_qualidade_chutes_medio_ultimos_5_jogos: metricsHome?.psxg_recent_avg,
                     xg_bola_parada_e_escanteios: metricsHome?.xg_set_piece_avg,
                     media_escanteios_perigosos_recentes: metricsHome?.media_escanteios_recentes, // Dados reais da equipe inseridos aqui
-                    tamanho_amostra_jogos_recentes: metricsHome?.sample_size
+                    tamanho_amostra_jogos_recentes: metricsHome?.sample_size,
+                    ultimos_jogos_gerais_todas_competicoes: metricsHome?.historico_resultados_geral || [] // 🔥 AQUI
                 },
 
                 visitante: {
@@ -292,7 +306,8 @@ export async function buscarDadosMatematicosBSD(game) {
                     psxg_qualidade_chutes_medio_ultimos_5_jogos: metricsAway?.psxg_recent_avg,
                     xg_bola_parada_e_escanteios: metricsAway?.xg_set_piece_avg,
                     media_escanteios_perigosos_recentes: metricsAway?.media_escanteios_recentes, // Dados reais da equipe inseridos aqui
-                    tamanho_amostra_jogos_recentes: metricsAway?.sample_size
+                    tamanho_amostra_jogos_recentes: metricsAway?.sample_size,
+                    ultimos_jogos_gerais_todas_competicoes: metricsAway?.historico_resultados_geral || [] // 🔥 AQUI
                 }
             },
 
