@@ -102,6 +102,46 @@ async function calcularMetricasAvancadas(teamId) {
     };
 }
 
+// 🔥 NOVA FUNÇÃO: Busca dados isolados de Casa ou Fora sem mexer no motor principal
+async function calcularMetricasSplitCasaFora(teamId, isHomeTeam) {
+    const hoje = new Date();
+    // 120 dias garantem que acharemos pelo menos 5 jogos na condição específica (casa ou fora)
+    const janelaDias = new Date(hoje.setDate(hoje.getDate() - 120)).toISOString().split('T')[0];
+
+    const history = await fetchBSD(`/events/?team_id=${teamId}&status=finished&date_from=${janelaDias}`);
+    if (!history || !history.results || history.results.length === 0) return null;
+
+    // Filtra a lista da API: Pega só jogos em casa (se isHomeTeam for true) ou só fora (se false)
+    const jogosFiltrados = history.results.filter(jogo => {
+        if (isHomeTeam) {
+            // 🔥 ESCUDO ADICIONADO: Copiando a lógica segura da função anterior
+            return jogo.home_team_obj?.id === teamId;
+        } else {
+            // 🔥 ESCUDO ADICIONADO
+            return jogo.away_team_obj?.id === teamId;
+        }
+    });
+
+    // Inverte para pegar os mais novos e corta nos 5 primeiros
+    const ultimos5 = jogosFiltrados.reverse().slice(0, 5);
+
+    let somaXg = 0, validos = 0;
+
+    for (const jogo of ultimos5) {
+        const detalhes = await fetchBSD(`/events/${jogo.id}/?full=true`);
+        if (!detalhes) continue;
+
+        const xgDoJogo = isHomeTeam ? detalhes.actual_home_xg : detalhes.actual_away_xg;
+
+        if (xgDoJogo !== undefined && xgDoJogo !== null) {
+            somaXg += xgDoJogo;
+            validos++;
+        }
+    }
+
+    return validos > 0 ? round2(somaXg / validos) : null;
+}
+
 
 export async function buscarDadosMatematicosBSD(game) {
 
@@ -148,14 +188,16 @@ export async function buscarDadosMatematicosBSD(game) {
         const leagueId = bsdMatch.league.id; // 🔥 NOVO: Pegando o ID da Liga
 
         // ✅ CORREÇÃO 1: Nomes das variáveis ajustadas para metricsHome e metricsAway
-        const [detalhes, homeM, awayM, metricsHome, metricsAway, standingsData, contextoV2] = await Promise.all([
+        const [detalhes, homeM, awayM, metricsHome, metricsAway, standingsData, contextoV2, xgSplitHome, xgSplitAway] = await Promise.all([
             fetchBSD(`/events/${eventId}/?full=true`),
             fetchBSD(`/managers/?team_id=${homeId}`),
             fetchBSD(`/managers/?team_id=${awayId}`),
             calcularMetricasAvancadas(homeId),
             calcularMetricasAvancadas(awayId),
             fetchBSD(`/leagues/${leagueId}/standings/`),
-            fetchBSD(`/v2/events/${eventId}/`) // 🔥 NOVO: V2 (Apenas para contexto externo)
+            fetchBSD(`/v2/events/${eventId}/`), // 🔥 NOVO: V2 (Apenas para contexto externo)
+            calcularMetricasSplitCasaFora(homeId, true),
+            calcularMetricasSplitCasaFora(awayId, false)
         ]);
 
         if (!detalhes) return null;
@@ -231,20 +273,17 @@ export async function buscarDadosMatematicosBSD(game) {
                 // Fatos Relevantes (Apenas as sentenças matemáticas)
                 fatos_historicos_pre_jogo: metadataV2?.trivia?.map(t => t.sentence) || []
 
-                // Os desfalques estão vindo com jogadores que estão relacionados para a partida
-                // desfalques_mandante: detalhes.unavailable_players?.home?.map(p => `${p.name} (${p.reason})`) || [],
-                // desfalques_visitante: detalhes.unavailable_players?.away?.map(p => `${p.name} (${p.reason})`) || [],
             },
 
             estatisticas_temporada: {
                 mandante: {
 
                     // 🔥 NOVO: DADOS DA TABELA DE CLASSIFICAÇÃO
-                    base_dos_dados: `Tabela da ${standingsData?.league?.name || "Liga Nacional"}`,
-                    posicao_campeonato: classifHome.position || "Desconhecido",
-                    pontos_campeonato: classifHome.pts || "Desconhecido",
-                    forma_recente_campeonato: traduzirForma(classifHome.form) || "Desconhecido", // Retorna ex: "W W D L"
-                    saldo_gols_campeonato: classifHome.gd || "Desconhecido",
+                    base_dos_dados: `Tabela da ${detalhes.league?.name || "Competição Atual"}`,
+                    posicao_nesta_competicao: classifHome.position || "Desconhecido",
+                    pontos_nesta_competicao: classifHome.pts || "Desconhecido",
+                    forma_recente_nesta_competicao: traduzirForma(classifHome.form) || "Desconhecido",
+                    saldo_gols_nesta_competicao: classifHome.gd || "Desconhecido",
 
                     // 🔥 NOVO: DADOS TÁTICOS
                     formacao_preferida: detalhes.home_coach?.preferred_formation || "Desconhecido",
@@ -266,22 +305,24 @@ export async function buscarDadosMatematicosBSD(game) {
                     // A linha falsa de escanteios do treinador foi removida daqui
 
                     // MÉTRICAS AVANÇADAS RECENTES (Últimos 5 jogos)
-                    xg_medio_ultimos_5_jogos: metricsHome?.xg_recent_avg,
+                    xg_medio_ultimos_5_jogos_gerais: metricsHome?.xg_recent_avg,
+                    xg_medio_ultimos_5_jogos_como_mandante: xgSplitHome,
                     psxg_qualidade_chutes_medio_ultimos_5_jogos: metricsHome?.psxg_recent_avg,
                     xg_bola_parada_e_escanteios: metricsHome?.xg_set_piece_avg,
                     media_escanteios_perigosos_recentes: metricsHome?.media_escanteios_recentes, // Dados reais da equipe inseridos aqui
                     tamanho_amostra_jogos_recentes: metricsHome?.sample_size,
                     ultimos_jogos_gerais_todas_competicoes: metricsHome?.historico_resultados_geral || [] // 🔥 AQUI
+
                 },
 
                 visitante: {
 
                     // 🔥 NOVO: DADOS DA TABELA DE CLASSIFICAÇÃO
-                    base_dos_dados: `Tabela da ${standingsData?.league?.name || "Liga Nacional"}`,
-                    posicao_campeonato: classifAway.position || "Desconhecido",
-                    pontos_campeonato: classifAway.pts || "Desconhecido",
-                    forma_recente_campeonato: traduzirForma(classifAway.form) || "Desconhecido",
-                    saldo_gols_campeonato: classifAway.gd || "Desconhecido",
+                    base_dos_dados: `Tabela da ${detalhes.league?.name || "Competição Atual"}`,
+                    posicao_nesta_competicao: classifAway.position || "Desconhecido",
+                    pontos_nesta_competicao: classifAway.pts || "Desconhecido",
+                    forma_recente_nesta_competicao: traduzirForma(classifAway.form) || "Desconhecido",
+                    saldo_gols_nesta_competicao: classifAway.gd || "Desconhecido",
 
                     // 🔥 NOVO: DADOS TÁTICOS
                     formacao_preferida: detalhes.away_coach?.preferred_formation || "Desconhecido",
@@ -302,7 +343,8 @@ export async function buscarDadosMatematicosBSD(game) {
                     media_posse_bola_treinador_atual: `${round2(awayM?.results?.[0]?.avg_possession)}%`,
 
                     // MÉTRICAS AVANÇADAS RECENTES (Últimos 5 jogos)
-                    xg_medio_ultimos_5_jogos: metricsAway?.xg_recent_avg,
+                    xg_medio_ultimos_5_jogos_gerais: metricsAway?.xg_recent_avg,
+                    xg_medio_ultimos_5_jogos_como_visitante: xgSplitAway,
                     psxg_qualidade_chutes_medio_ultimos_5_jogos: metricsAway?.psxg_recent_avg,
                     xg_bola_parada_e_escanteios: metricsAway?.xg_set_piece_avg,
                     media_escanteios_perigosos_recentes: metricsAway?.media_escanteios_recentes, // Dados reais da equipe inseridos aqui
@@ -322,6 +364,8 @@ export async function buscarDadosMatematicosBSD(game) {
         };
 
     } catch (e) {
+        console.error("🚨 ERRO CRÍTICO NO MOTOR BSD:", e);
         return null;
     }
+    
 }

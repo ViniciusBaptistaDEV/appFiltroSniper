@@ -150,8 +150,8 @@ xG / xGA / Big Chances / SoT:
 Este protocolo só pode ser executado APÓS o RAIO-X de xG.
 BUSCAS OBRIGATÓRIAS (DADOS REAIS, COM FALLBACK SE NECESSÁRIO):
 • xG e xGA dos dois times (use a temporada atual da liga; se indisponível, aplique o FALLBACK OFICIAL)
-• Gols marcados e sofridos (últimos 5–6 jogos)
-• Percentual de Over 2.5 e de Ambas Marcam (se indisponível, calcule a partir dos últimos 5–6 jogos)
+• Gols marcados e sofridos (últimos 5 jogos)
+• Percentual de Over 2.5 e de Ambas Marcam (se indisponível, calcule a partir dos últimos 5 jogos)
 • Big Chances criadas e cedidas
 🚫 REGRA DE ABORTO (POR MERCADO)
 Se qualquer um dos dados acima NÃO puder ser confirmado com fonte e nem via FALLBACK OFICIAL:
@@ -198,8 +198,8 @@ PERMITIR UNDER 2.5 APENAS SE:
 Para liberar o BTTS (Sim), a balança entre ataque e defesa deve estar perfeitamente desequilibrada em favor dos ataques.
 • xG Combinado (Soma dos dois times) deve ser ≥ 2.40.
 • xG Individual de CADA time deve ser ≥ 1.10 (Para evitar o risco do 1-0).
-• Poder de Fogo: Ambos marcaram gols em pelo menos 4 dos últimos 6 jogos.
-• Defesa Vazada: Ambos sofreram gols em pelo menos 4 dos últimos 6 jogos.
+• Poder de Fogo: Ambos marcaram gols em pelo menos 3 dos últimos 5 jogos.
+• Defesa Vazada: Ambos sofreram gols em pelo menos 3 dos últimos 5 jogos.
 ❌ BLOQUEAR BTTS (MESMO COM XG ALTO) SE:
 • Um dos times tiver taxa de Clean Sheets (jogos sem sofrer gols) > 40% na temporada.
 • Disparidade técnica for muito grande (ex: um time com xG 1.50 contra outro com xG 0.80).
@@ -211,7 +211,7 @@ Para liberar o BTTS (Sim), a balança entre ataque e defesa deve estar perfeitam
 O BTTS (NÃO) só deve ser recomendado quando houver assimetria clara entre ataque e defesa OU quando o risco de placar curto for dominante.
 PERMITIR BTTS (NÃO) APENAS SE:
 • Pelo menos um time tiver Clean Sheets ≥ 40% na temporada.
-• Pelo menos um ataque produzir xG < 1.00 de forma consistente (últimos 5–6 jogos).
+• Pelo menos um ataque produzir xG < 1.00 de forma consistente (últimos 5 jogos).
 • Dependência extrema de 1 jogador (≥45% xG/xA) que esteja lesionado, suspenso ou voltando de lesão/minutos.
 • Goleiro em fase excepcional: PSxG-GA ≤ -0.20/90 (últimos 6 jogos).
 • Histórico recente: ≥3/5 jogos de um dos times sem sofrer gol.
@@ -224,7 +224,7 @@ Se o time Super Favorito joga FORA DE CASA, mas possui 2 ou mais desfalques conf
 2. AÇÃO EXIGIDA: Mude a indicação para "Ambas Marcam (Sim)" (se a zebra tiver bom histórico de gols em casa) OU ABORTE/BLOQUEIE o mercado de gols para este jogo por ser imprevisível.
 BLOQUEAR BTTS (NÃO) SE:
 • xG combinado ≥ 2.40
-• Ambos marcaram em ≥4 dos últimos 6
+• Ambos marcaram em ≥3 dos últimos 5 jogos
 • Alguma defesa tem xGA ≥ 1.30
 • Ambos com transição rápida pelos lados
 • Jogo com tendência de gol cedo (mencionar na justificativa do cenário tático)
@@ -300,7 +300,7 @@ Se o adversário neutraliza ataques com faltas no meio ou pressão alta organiza
 2. Desgaste físico → ALERTA DE RISCO
 3. Contra-ataque perigoso → ABORTE vitória seca
 🚨 FRAGILIDADE DEFENSIVA OCULTA
-• Se o favorito sofreu gol em 5 ou mais jogos dos últimos 6 jogos:
+• Se o favorito sofreu gol em 4 ou mais jogos dos últimos 5 jogos:
   – Vitória seca PROIBIDA. ABORTE o mercado de resultado final.
   EXCEÇÃO: Exceto se o adversário tiver o pior ataque da liga.
 🛑 TRAVA ABSOLUTA – RADAR DE VITÓRIAS
@@ -309,8 +309,8 @@ Se o adversário neutraliza ataques com faltas no meio ou pressão alta organiza
  – Se houver 3 jogos em 7 dias → Rebaixar automaticamente para Dupla-Chance (Aplica-se a penalidade de SINAL DE ALERTA).
 • Estado Motivacional e Situação na Tabela:
  – Se um time estiver altamente motivado (vaga europeia, título ou risco real de rebaixamento) e o outro sem objetivo → jogo de gestão; considerar "Quem Classifica" ou Dupla-Chance em vez de Vitória Seca.
-• Split Casa/Fora Real (Últimos 6):
- – Vitória fora PROIBIDA se o xG fora dos últimos 6 jogos for < 0.95, mesmo que a média da temporada seja boa.
+• Split Casa/Fora Real (Últimos 5 jogos):
+– Vitória fora PROIBIDA se o xG fora dos últimos 5 jogos for < 0.95, mesmo que a média da temporada seja boa.
 • Matchup Tático (Pressão & Transição):
  – Se o favorito enfrentar time de contra-ataque forte pelos lados e sofrer em recomposição → Vitória Seca PROIBIDA.
 • Bolas Paradas (Força x Fragilidade):
@@ -374,7 +374,7 @@ Goleiro em fase excepcional → EVITE vitória seca.
 Modo econômico → rebaixar confiança.
 🏟 CASA/FORA – LIMITES
 Bloquear vitória fora se:
-•  xG fora (últimos 6) < 0.95
+•  xG fora (últimos 5 jogos) < 0.95
 • OU Mandante tem ≤ 1 derrota em 8 em casa e xGD/90 ≥ 0
 
 

@@ -184,7 +184,7 @@ async function fetchTavily(queryTexto, diasBusca, tipoBusca) {
 
         // Constrói o texto mesclando as fontes
         const conteudoUnificado = data.results.map(r => {
-          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 6000) : r.content;
+          const conteudoReal = r.raw_content ? r.raw_content.substring(0, 7000) : r.content;
 
           // console.log(`\n\nFONTE: ${r.url}\n`);
 
@@ -255,15 +255,15 @@ async function buscarDadosCompletos(jogoObj) {
   if (liga.includes("brazil") || liga.includes("brasileiro") || liga.includes("Brazilian")) {
 
     // QUERY ÚNICA: Fator Humano, Disponibilidade e Clima de Vestiário
-    queryNoticias = `Desfalques, lesões, provável escalação, time reserva, suspensões, técnico vai poupar, maratona de jogos, rodízio, coletiva de imprensa, crise, foco em outra competição, ${jogoNome} ${dataBR} Globo Esporte UOL Gazeta Esportiva Gato Mestre`;
+    queryNoticias = `Desfalques, lesões, provável escalação, time reserva, suspensões, técnico vai poupar, maratona de jogos, rodízio, foco em outra competição, ${jogoNome} ${dataBR} Globo Esporte UOL Gazeta Esportiva Gato Mestre`;
 
   } else if (liga.includes("libertadores") || liga.includes("sudamericana") || liga.includes("sulamericana")) {
 
-    queryNoticias = `Bajas, lesionados, suspendidos, alineación probable, equipo alternativo, descanso y rotación, conferencia de prensa, crisis, ${jogoNome} ${dataBR} TyC Sports Olé Promiedos ESPN Gato Mestre`;
+    queryNoticias = `Bajas, lesionados, suspendidos, alineación probable, equipo alternativo, descanso y rotación,  crisis, ${jogoNome} ${dataBR} TyC Sports Olé Promiedos ESPN Gato Mestre`;
 
   } else {
 
-    queryNoticias = `Match preview, team news, injuries, predicted lineup, rotated squad, resting players, fixture congestion, press conference, manager quotes, ${jogoNome} ${dataBR} Goal.com WhoScored Sport Sky Sports ESPN Gato Mestre`;
+    queryNoticias = `Match preview, team news, injuries, predicted lineup, rotated squad, resting players, fixture congestion, manager quotes, ${jogoNome} ${dataBR} Goal.com WhoScored Sport Sky Sports ESPN Gato Mestre`;
 
   }
 
