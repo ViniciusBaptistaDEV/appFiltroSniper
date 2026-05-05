@@ -80,60 +80,83 @@ export async function obterOddsDoDia(dataAlvo, jogosESPN) {
 
 
 // ===========================================================================
-// MAPEAR MERCADOS E EXTRAIR (Atualizado para o JSON Real da Odds-API)
+// MAPEAR MERCADOS E EXTRAIR (Turbinado e Blindado)
 // ===========================================================================
 function mapearMercado(card) {
     if (!card) return null;
-    const group = card.group || '';
+    
+    // 🔥 USAMOS norm() EM TUDO PARA ARRANCAR ACENTOS!
+    const group = norm(card.group || '');
+    
     const matchTarget = card.body.match(/\[TARGET\]\s*(.*?)\s*\|/i);
-    const target = matchTarget ? matchTarget[1].trim().toLowerCase() : '';
+    const target = matchTarget ? norm(matchTarget[1]) : '';
+    
     const matchOportunidade = card.body.match(/\[OPORTUNIDADE\]\s*(.*?)\s*\|/i);
-    const oportunidade = matchOportunidade ? matchOportunidade[1].trim().toLowerCase() : '';
+    const oportunidade = matchOportunidade ? norm(matchOportunidade[1]) : '';
 
     const textoBusca = target + " " + oportunidade;
 
-    // 1. MERCADO DE GOLS (Totals)
-    if (group.includes('MERCADO DE GOLS')) {
-        const isOver = textoBusca.includes('over') || textoBusca.includes('mais');
-        const matchNumber = textoBusca.match(/(\d+(\.\d+)?)/);
-        const linha = matchNumber ? parseFloat(matchNumber[1]) : 2.5;
-        return { market: 'Totals', line: linha, side: isOver ? 'over' : 'under', tipo: 'gols' };
+    // 🛑 1. BLOQUEIO IMEDIATO DE ESCANTEIOS (Protege o Over/Under de gols)
+    if (group.includes('escanteios') || textoBusca.includes('escanteios')) {
+        return { tipo: 'escanteios' }; // Retorna para cair no Indisponível com segurança
     }
 
-    // 2. AMBAS MARCAM (Both Teams To Score)
-    if (group.includes('AMBAS MARCAM')) {
-        const isNo = textoBusca.includes('não') || textoBusca.includes('nao');
+    // ⚽ 2. MERCADO DE GOLS (Totals)
+   // ⚽ 1. MERCADO DE GOLS (Totals)
+    if (group.includes('mercado de gols') || textoBusca.includes('gols')) {
+        
+        // Palavras universais para OVER e UNDER (normalizadas)
+        const isOver = textoBusca.includes('over') || textoBusca.includes('mais') || textoBusca.includes('acima');
+        const isUnder = textoBusca.includes('under') || textoBusca.includes('menos') || textoBusca.includes('abaixo');
+        
+        // 🔥 BLINDAGEM DE LINHA: Procuramos especificamente por 0.5, 1.5, 2.5 ou 3.5
+        const matchLinha = textoBusca.match(/(0\.5|1\.5|2\.5|3\.5)/);
+        
+        // Se a IA não citou a linha, usamos 2.5 como padrão (fallback)
+        const linha = matchLinha ? parseFloat(matchLinha[1]) : 2.5;
+        
+        // Define o lado (over ou under) com base nas palavras encontradas
+        let sideFinal = 'over'; // Padrão
+        if (isUnder) sideFinal = 'under';
+        if (isOver) sideFinal = 'over';
+
+        return { market: 'Totals', line: linha, side: sideFinal, tipo: 'gols' };
+    }
+
+    // 🤝 3. AMBAS MARCAM (Both Teams To Score)
+    if (group.includes('ambas marcam') || textoBusca.includes('btts')) {
+        // Sem acento no "nao"
+        const isNo = textoBusca.includes('nao') || textoBusca.includes('no');
         return { market: 'Both Teams To Score', side: isNo ? 'no' : 'yes', tipo: 'btts' };
     }
 
-    // 3. ESCANTEIOS (Ignora e devolve null para cair no Indisponível)
-    if (group.includes('ESCANTEIOS')) return { tipo: 'escanteios' };
-
-    // 4. RADAR DE VITÓRIAS E DUPLA CHANCE
-    if (group.includes('RADAR DE VITÓRIAS')) {
-        if (textoBusca.includes('classifica')) return { tipo: 'especial' }; // Fica indisponível
+    // 🏆 4. RADAR DE VITÓRIAS E DUPLA CHANCE
+    if (group.includes('radar de vitorias') || textoBusca.includes('vitoria') || textoBusca.includes('dupla chance') || textoBusca.includes('empate')) {
+        if (textoBusca.includes('classifica')) return { tipo: 'especial' }; 
         
         if (textoBusca.includes('dupla chance') || textoBusca.includes('empate ou') || textoBusca.includes('ou empate')) {
             return { market: 'Double Chance', tipo: 'dupla_chance', textoBusca };
         }
         return { market: 'ML', tipo: 'vitoria', textoBusca };
     }
+    
     return { market: 'ML', tipo: 'vitoria', textoBusca };
 }
 
 function extrairOddsBook(marketsArray, mapeado, card) {
     if (!marketsArray || !Array.isArray(marketsArray) || !mapeado) return null;
     try {
-        const [home, away] = card.title.split(" vs ").map(t => t.split(" (")[0].trim().toLowerCase());
+        // 🔥 norm() NOS TIMES PARA O MATCH BATER MESMO COM "ATLÉTICO" OU "GRÊMIO"
+        const [rawHome, rawAway] = card.title.split(" vs ");
+        const home = norm(rawHome.split(" (")[0] || "");
+        const away = norm(rawAway.split(" (")[0] || "");
         
-        // Bloqueios de segurança
         if (mapeado.tipo === 'escanteios' || mapeado.tipo === 'especial') return null;
 
-        // Bate com o "name" exato do JSON
         const marketObj = marketsArray.find(m => m.name === mapeado.market);
         if (!marketObj || !marketObj.odds || !marketObj.odds[0]) return null;
 
-        const odds = marketObj.odds[0]; // Pega o array de preços
+        const odds = marketObj.odds[0];
 
         // --- AMBAS MARCAM ---
         if (mapeado.tipo === 'btts') {
@@ -142,29 +165,34 @@ function extrairOddsBook(marketsArray, mapeado, card) {
 
         // --- MERCADO DE GOLS ---
         if (mapeado.tipo === 'gols') {
-            // Procura a linha exata (ex: hdp: 2.5) dentro do array de odds do Totals
             const oddMatch = marketObj.odds.find(o => o.hdp === mapeado.line) || marketObj.odds[0];
             return mapeado.side === 'over' ? oddMatch.over : oddMatch.under;
         }
 
         // --- VITÓRIA SECA (ML) ---
         if (mapeado.tipo === 'vitoria') {
-            const targetLower = mapeado.textoBusca;
-            if (targetLower.includes(home) || home.includes(targetLower)) return odds.home;
-            if (targetLower.includes(away) || away.includes(targetLower)) return odds.away;
-            if (targetLower.includes('empate') || targetLower.includes('draw')) return odds.draw;
+            const tb = mapeado.textoBusca; // Já está normalizado sem acentos
             
-            // Retorna a menor odd (favorito) se não conseguir identificar o texto
+            if (tb.includes('empate') || tb.includes('draw')) return odds.draw;
+            
+            if (tb.includes(home) || tb.includes('mandante') || tb.includes('casa')) return odds.home;
+            if (tb.includes(away) || tb.includes('visitante') || tb.includes('fora')) return odds.away;
+            
             const valores = [parseFloat(odds.home), parseFloat(odds.away)].filter(v => !isNaN(v));
             return valores.length ? Math.min(...valores).toFixed(2) : null;
         }
 
         // --- DUPLA CHANCE ---
         if (mapeado.tipo === 'dupla_chance') {
-            const targetLower = mapeado.textoBusca;
-            if (targetLower.includes(home) || home.includes(targetLower)) return odds["1X"]; // Casa ou Empate
-            if (targetLower.includes(away) || away.includes(targetLower)) return odds["X2"]; // Fora ou Empate
-            return odds["12"]; // Qualquer um vence (Sem empate)
+            const tb = mapeado.textoBusca;
+            
+            const falaDoMandante = tb.includes(home) || tb.includes('mandante') || tb.includes('casa');
+            const falaDoVisitante = tb.includes(away) || tb.includes('visitante') || tb.includes('fora');
+
+            if (falaDoMandante && !falaDoVisitante) return odds["1X"];
+            if (falaDoVisitante && !falaDoMandante) return odds["X2"];
+            
+            return odds["12"]; 
         }
 
     } catch (e) { 

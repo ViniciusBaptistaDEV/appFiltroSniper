@@ -145,6 +145,26 @@ async function calcularMetricasSplitCasaFora(teamId, isHomeTeam) {
 
 export async function buscarDadosMatematicosBSD(game) {
 
+    // try {
+    //     const homeTraduzido = DICIONARIO[game.homeTeam.toLowerCase()] || game.homeTeam;
+    //     const awayTraduzido = DICIONARIO[game.awayTeam.toLowerCase()] || game.awayTeam;
+
+    //     // Cria o objeto de data real a partir da string UTC da ESPN
+    //     const dataObj = new Date(game.kickoff);
+
+    //     // Converte a data para o fuso do Brasil e extrai no formato exato da BSD (YYYY-MM-DD)
+    //     // 'en-CA' é usado aqui porque é o padrão oficial para extrair datas com traços (YYYY-MM-DD)
+    //     const dateStr = dataObj.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+    //     // 🛡️ TRAVA 1 CORRIGIDA: Envia o nome INTEIRO codificado para a URL
+    //     let search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(homeTraduzido)}&tz=America/Sao_Paulo`);
+
+    //     if (!search?.results || search.results.length === 0) {
+    //         search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(awayTraduzido)}&tz=America/Sao_Paulo`);
+    //     }
+
+    //     if (!search?.results || search.results.length === 0) return null;
+
     try {
         const homeTraduzido = DICIONARIO[game.homeTeam.toLowerCase()] || game.homeTeam;
         const awayTraduzido = DICIONARIO[game.awayTeam.toLowerCase()] || game.awayTeam;
@@ -152,18 +172,22 @@ export async function buscarDadosMatematicosBSD(game) {
         // Cria o objeto de data real a partir da string UTC da ESPN
         const dataObj = new Date(game.kickoff);
 
-        // Converte a data para o fuso do Brasil e extrai no formato exato da BSD (YYYY-MM-DD)
-        // 'en-CA' é usado aqui porque é o padrão oficial para extrair datas com traços (YYYY-MM-DD)
-        const dateStr = dataObj.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        // 🔥 PASSO 1: Pegamos a data no fuso de Brasília (ex: 2026-05-05)
+        const dateLocal = dataObj.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+        
+        // 🔥 PASSO 2: Pegamos a data no fuso UTC (ex: 2026-05-06 para jogos após as 21h de Brasília)
+        const dateUTC = dataObj.toISOString().split('T')[0];
 
-        // 🛡️ TRAVA 1 CORRIGIDA: Envia o nome INTEIRO codificado para a URL
-        let search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(homeTraduzido)}&tz=America/Sao_Paulo`);
+        // 🛡️ PASSO 3: Expandimos a janela de busca do dateLocal até o dateUTC
+        // Isso garante que jogos de madrugada (como o do Santos) sejam encontrados.
+        let search = await fetchBSD(`/events/?date_from=${dateLocal}&date_to=${dateUTC}&team=${encodeURIComponent(homeTraduzido)}&tz=America/Sao_Paulo`);
 
         if (!search?.results || search.results.length === 0) {
-            search = await fetchBSD(`/events/?date_from=${dateStr}&date_to=${dateStr}&team=${encodeURIComponent(awayTraduzido)}&tz=America/Sao_Paulo`);
+            search = await fetchBSD(`/events/?date_from=${dateLocal}&date_to=${dateUTC}&team=${encodeURIComponent(awayTraduzido)}&tz=America/Sao_Paulo`);
         }
 
         if (!search?.results || search.results.length === 0) return null;
+
 
         // 🛡️ TRAVA 2 CORRIGIDA: Varre a lista toda para achar o jogo exato
         const homeBuscado = homeTraduzido.toLowerCase();

@@ -1,0 +1,125 @@
+[
+    {
+        "id_evento": 9302,
+        "confronto": "Recoleta FC vs Santos",
+        "liga": "Copa Sudamericana",
+        "fase_ou_rodada": "Rodada/Semana 4",
+        "contexto_do_jogo": {
+            "classico_local_derby": false,
+            "campo_neutro": false,
+            "distancia_viagem_visitante_km": 0,
+            "clima_partida": "Desconhecido",
+            "condicao_gramado_nivel": "Desconhecido",
+            "arbitro": {
+                "nome": "N/A",
+                "media_cartoes_amarelos": "Sem dados",
+                "media_cartoes_vermelhos": "Sem dados",
+                "media_faltas_marcadas": "Sem dados"
+            },
+            "odds_consenso": {
+                "vitoria_mandante": 5.3,
+                "empate": 3.7,
+                "vitoria_visitante": 1.73,
+                "over_25_gols": 1.9,
+                "under_25_gols": 1.925,
+                "ambas_marcam_sim": 1.833
+            },
+            "desfalques_confirmados": {
+                "mandante": [],
+                "visitante": []
+            },
+            "fatos_historicos_pre_jogo": []
+        },
+        "estatisticas_temporada": {
+            "mandante": {
+                "base_dos_dados": "Tabela da Copa Sudamericana",
+                "posicao_nesta_competicao": 22,
+                "pontos_nesta_competicao": 4,
+                "forma_recente_nesta_competicao": "(Mais antigo) Empate - Empate - Empate - Empate (Mais recente)",
+                "saldo_gols_nesta_competicao": "Desconhecido",
+                "formacao_preferida": "4-4-2",
+                "media_xg_criado_temporada": 0.6,
+                "media_xg_concedido_temporada": 1.43,
+                "media_finalizacoes_por_jogo": 4.5,
+                "media_chutes_no_gol_por_jogo": 1.75,
+                "xg_por_chute_eficiencia": 0.13,
+                "btts_pct_com_treinador_atual": "75%",
+                "clean_sheet_pct_com_treinador_atual": "25%",
+                "over_25_pct_com_treinador_atual": "0%",
+                "media_posse_bola_treinador_atual": "42.75%",
+                "xg_medio_ultimos_5_jogos_gerais": 0.85,
+                "xg_medio_ultimos_5_jogos_como_mandante": 0.56,
+                "psxg_qualidade_chutes_medio_ultimos_5_jogos": 1.03,
+                "xg_bola_parada_e_escanteios": 0.03,
+                "media_escanteios_perigosos_recentes": 0,
+                "tamanho_amostra_jogos_recentes": 2,
+                "ultimos_jogos_gerais_todas_competicoes": [
+                    {
+                        "torneio": "Copa Sudamericana",
+                        "placar": "Recoleta FC 1 x 1 San Lorenzo"
+                    },
+                    {
+                        "torneio": "Copa Sudamericana",
+                        "placar": "Santos 1 x 1 Recoleta FC"
+                    }
+                ]
+            },
+            "visitante": {
+                "base_dos_dados": "Tabela da Copa Sudamericana",
+                "posicao_nesta_competicao": 31,
+                "pontos_nesta_competicao": 2,
+                "forma_recente_nesta_competicao": "(Mais antigo) Derrota - Empate - Empate (Mais recente)",
+                "saldo_gols_nesta_competicao": -1,
+                "formacao_preferida": "4-2-3-1",
+                "media_xg_criado_temporada": 1.42,
+                "media_xg_concedido_temporada": 0.76,
+                "media_finalizacoes_por_jogo": 10.33,
+                "media_chutes_no_gol_por_jogo": 4,
+                "xg_por_chute_eficiencia": 0.14,
+                "btts_pct_com_treinador_atual": "55.4%",
+                "clean_sheet_pct_com_treinador_atual": "25%",
+                "over_25_pct_com_treinador_atual": "48.2%",
+                "media_posse_bola_treinador_atual": "49.93%",
+                "xg_medio_ultimos_5_jogos_gerais": 0.92,
+                "xg_medio_ultimos_5_jogos_como_visitante": 1.28,
+                "psxg_qualidade_chutes_medio_ultimos_5_jogos": 0.96,
+                "xg_bola_parada_e_escanteios": 0.15,
+                "media_escanteios_perigosos_recentes": 1.75,
+                "tamanho_amostra_jogos_recentes": 4,
+                "ultimos_jogos_gerais_todas_competicoes": [
+                    {
+                        "torneio": "Copa do Brasil",
+                        "placar": "Santos 0 x 0 Coritiba"
+                    },
+                    {
+                        "torneio": "Brasileirão Serie A",
+                        "placar": "Bahia 2 x 2 Santos"
+                    },
+                    {
+                        "torneio": "Copa Sudamericana",
+                        "placar": "San Lorenzo 1 x 1 Santos"
+                    },
+                    {
+                        "torneio": "Brasileirão Serie A",
+                        "placar": "Palmeiras 1 x 1 Santos"
+                    }
+                ]
+            }
+        },
+        "analise_h2h": {
+            "media_gols_confronto_direto": 2,
+            "vitorias_mandante_pct_historico": "0%",
+            "vitorias_visitante_pct_historico": "0%",
+            "empates_pct_historico": "0%",
+            "total_jogos_historico_analisados": 1,
+            "ultimos_jogos_diretos_2_anos": [
+                {
+                    "away": "Recoleta FC",
+                    "date": "2026-04-15T00:30:00+00:00",
+                    "home": "Santos",
+                    "score": "1-1"
+                }
+            ]
+        }
+    }
+]
